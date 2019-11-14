@@ -1,3 +1,11 @@
+# data and files
+data/*
+logs/*
+misc/*
+temp/*
+*.csv
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
