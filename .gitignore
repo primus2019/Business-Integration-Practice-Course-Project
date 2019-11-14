@@ -1,10 +1,7 @@
-# data and files
-data/*
-logs/*
-misc/*
-temp/*
+# data
 *.csv
-
+*.xlsx
+*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
