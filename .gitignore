@@ -3,7 +3,10 @@
 *.xlsx
 *.log
 utils/
-.vscode
+.vscode/
+*.png
+*.jpg
+*.jpeg
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
