@@ -15,8 +15,8 @@ def run():
     ]
 
     Log.clear_log(creative=True)
-    # ## originla dataset path
-    # ## EDA(checking na data, feature type)
+    # # originla dataset path
+    # # EDA(checking na data, feature type)
     # EDA_massive.EDA(ds_path, 'feature', encoding='gb18030')
     # ## sample dataset path(a smaller one)
     # ## split sub dataset for test modelling
@@ -24,19 +24,35 @@ def run():
     # EDA_massive.EDA(ds_smp_path, 'feature', folder='tmp', save_graph=True, encoding='gb18030')
     classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
 
+
     # # preprocess
     # ## data cleaning
-    # ### special features(like dtype='O')
+    # ##################### special features(like dtype='O') #####################
     # special_features = []
     # for feature_class, flag in zip(classed_features, flag_list):
     #     special_features.extend(Preprocess.special_feature(ds_smp_path, feature_class, encoding='gb18030'))
     # Preprocess.clean_special_feature(ds_smp_path, special_features, save_path=ds_smp_path, encoding='gb18030')
-    # ## outlier(if outlier is set na, then is treated as missing data in following process)
+    classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
+    # for i, feature_class in enumerate(classed_features):
+    #     for special_feature in special_features:
+    #         if special_feature in feature_class:
+    #             classed_features[i].remove(special_feature)
+    #             print(1)
+    # ##################### outlier data(if outlier is set na, then is treated as missing data in following process) #####################
     # for feature_class, flag in zip(classed_features, flag_list):
     #     Preprocess.clean_outlier(ds_smp_path, feature_class, threshold=1, encoding='gb18030', save_path=ds_smp_path)
     #     EDA.feature_EDA(ds_smp_path, feature_class[:20], encoding='gb18030')
     #     EDA.feature_na(ds_smp_path, feature_class[:20], encoding='gb18030')
-    # ### missing data
+    # ##################### poor sample #####################
+    # EDA_massive.poor_sample(ds_smp_path, 9, encoding='gb18030')
+    # Preprocess.clean_poor_sample(ds_smp_path, 9, save_path=ds_smp_path, encoding='gb18030')
+    # EDA_massive.poor_sample(ds_smp_path, 9, encoding='gb18030')
+    # ##################### poor feature #####################
+    # EDA_massive.poor_feature(ds_smp_path, 3, encoding='gb18030')
+    # Preprocess.clean_poor_feature(ds_smp_path, 3, save_path=ds_smp_path, encoding='gb18030')
+    # EDA_massive.poor_feature(ds_smp_path, 3, encoding='gb18030')
+    classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
+    # ##################### missing data #####################
     # EDA.feature_EDA(ds_smp_path, flag_list, encoding='gb18030')
     # for feature_class, flag in zip(classed_features, flag_list):
     #     Preprocess.fill_na(ds_smp_path, feature_class, flag_feature=flag, flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
@@ -44,8 +60,9 @@ def run():
     
 
 # todo
-    # ### poor sample
-    # ### duplicated sample
+
+    # ##################### duplicated sample #####################
+    
     # ## sort sample dataset by 'user_date' in ascend
     # labels = EDA_massive.labels(ds_smp_srt_path, column=-1, encoding='gb18030')
     # print(labels)
