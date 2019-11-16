@@ -22,7 +22,7 @@ def run():
     # ## split sub dataset for test modelling
     # Preprocess.split(ds_path, ds_smp_path, chunksize=1000, encoding='gb18030')
     # EDA_massive.EDA(ds_smp_path, 'feature', folder='tmp', save_graph=True, encoding='gb18030')
-    # classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
+    classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
 
 
     # ## ************************ preprocess ************************
@@ -46,21 +46,27 @@ def run():
     # EDA_massive.poor_feature(ds_smp_path, 3, encoding='gb18030')
     # Preprocess.clean_poor_feature(ds_smp_path, 3, save_path=ds_smp_path, encoding='gb18030')
     # EDA_massive.poor_feature(ds_smp_path, 3, encoding='gb18030')
-    classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
+    # classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
     # ##################### dull feature #####################
     # EDA_massive.dull_feature(ds_smp_path, 0.9, -1, encoding='gb18030')
     # Preprocess.clean_dull_feature(ds_smp_path, 0.9, -1, save_path=ds_smp_path, encoding='gb18030')
     # EDA_massive.dull_feature(ds_smp_path, 0.9, -1, encoding='gb18030')
+    # classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
     # ##################### missing data #####################
     # EDA.feature_EDA(ds_smp_path, flag_list, encoding='gb18030')
     # for feature_class, flag in zip(classed_features, flag_list):
     #     Preprocess.fill_na(ds_smp_path, feature_class, flag_feature=flag, flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
     #     EDA.feature_na(ds_smp_path, feature_class[:20], encoding='gb18030')
-    
+
+
+
 
 # todo
+    # ##################### information value #####################
+    # Preprocess.clean_lowIV_feature(ds_smp_path, -1, encoding='gb18030')
 
     # ##################### duplicated sample #####################
+    # protect the label column when cleaning should be noticed
 
     # ## sort sample dataset by 'user_date' in ascend
     # labels = EDA_massive.labels(ds_smp_srt_path, column=-1, encoding='gb18030')
