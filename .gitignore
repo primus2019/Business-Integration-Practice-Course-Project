@@ -2,7 +2,7 @@
 *.csv
 *.xlsx
 *.log
-utils/
+# utils/
 .vscode/
 *.png
 *.jpg
