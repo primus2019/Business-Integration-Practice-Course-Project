@@ -14,7 +14,7 @@ from utils.Log import printlog
 
 def EDA(ds, data_type, folder=None, save_graph=True, encoding='utf-8', header=0, index_col=0, largeset=False, nrows=1000):
     '''
-    Params:
+    # Params:
 
     ds_path: str/pd.Dataframe , dataset path or dataset
 
@@ -81,6 +81,7 @@ def shape(ds, largeset=False, encoding='utf-8', header=0, index_col=0):
     # Params:
 
     ds: pd.Dataframe or str of dataset path
+    
     '''
     if type(ds) == str:
         ds = pd.read_csv(ds, encoding=encoding, header=0, index_col=0)
@@ -232,7 +233,7 @@ def feature_type(ds, file_path=None, save_graph=True, encoding='utf-8', header=0
 
 def date_feature(ds, feature, labels=None, label_column=None, file_path=None, save_graph=True, encoding='utf-8', header=0, index_col=0):
     '''
-    Params:
+    # Params:
 
     ds: str/pd.Dataframe, dataset or dataset path
 
@@ -255,6 +256,7 @@ def date_feature(ds, feature, labels=None, label_column=None, file_path=None, sa
 
     index_col(default 0): int, works in pandas.read_csv()
     (learn more at:https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_csv.html)
+
     '''
     assert type(feature) == str, 'EDA_massive: feature should be str; {} is entered'.format(feature)
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
@@ -309,7 +311,7 @@ def date_feature(ds, feature, labels=None, label_column=None, file_path=None, sa
 
 def poor_sample(ds, threshold, encoding='utf-8', header=0, index_col=0):
     '''
-    Params:
+    # Params:
 
     ds: str/pd.Dataframe, dataset or dataset path
 
@@ -322,6 +324,7 @@ def poor_sample(ds, threshold, encoding='utf-8', header=0, index_col=0):
 
     index_col(default 0): int, works in pandas.read_csv()
     (learn more at:https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_csv.html)
+
     '''    
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     printlog('poor samples: {}/{} samples contain more than {} notNa features'.format(
@@ -333,7 +336,7 @@ def poor_sample(ds, threshold, encoding='utf-8', header=0, index_col=0):
 
 def poor_feature(ds, threshold, encoding='utf-8', header=0, index_col=0):
     '''
-    Params:
+    # Params:
 
     ds: str/pd.Dataframe, dataset or dataset path
 
@@ -346,6 +349,7 @@ def poor_feature(ds, threshold, encoding='utf-8', header=0, index_col=0):
 
     index_col(default 0): int, works in pandas.read_csv()
     (learn more at:https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_csv.html)
+
     '''
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     printlog('poor features: {}/{} features contain more than {} notNa samples'.format(
@@ -357,7 +361,7 @@ def poor_feature(ds, threshold, encoding='utf-8', header=0, index_col=0):
 
 def dull_feature(ds, threshold, label_column, encoding='utf-8', header=0, index_col=0):
     '''
-    Params:
+    # Params:
 
     ds: str/pd.Dataframe, dataset or dataset path
 
@@ -371,9 +375,10 @@ def dull_feature(ds, threshold, label_column, encoding='utf-8', header=0, index_
     index_col(default 0): int, works in pandas.read_csv()
     (learn more at:https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.read_csv.html)
 
-    Instructions:
+    # Instructions:
 
     Discard features that have oversized appearance of single (value, label) pair.
+
     '''
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     label_column = ds.columns[label_column] if isinstance(label_column, int) else label_column
