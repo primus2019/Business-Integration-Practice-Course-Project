@@ -76,7 +76,7 @@ def split(ds_path, ds_split_path, chunksize=None, fraction=None, shuffle=True, l
     assert not (chunksize is not None and fraction is not None), 'One and only one of chunksize and fraction should be valid; both valid now.'
     assert chunksize or fraction, 'Only and only one of chunksize and fraction should be valid; both invalid now.'
     if fraction:
-        assert fraction < 1, 'Fraction is over 1; you may mistake it for chunksize, or else you can change it to 1.'
+        assert fraction <= 1, 'Fraction is over 1; you may mistake it for chunksize, or else you can change it to 1.'
     if chunksize:
         assert chunksize > 1, 'Chunksize is below 1; you may mistake it for faction.'
 
@@ -313,7 +313,7 @@ def fill_na(ds, features, replacement=-99, flag_feature=None, flag_replacement=N
         features = [features] if isinstance(features, str) else features
         for feature in features:
             if flag_feature and flag_replacement:
-                print('fill ba: feature: {}; \tflag_feature: {}'.format(feature, flag_feature))
+                printlog('fill na: feature: {}; \tflag_feature: {}'.format(feature, flag_feature), printable=False)
                 flag_feature = ds.columns[flag_feature] if isinstance(flag_feature, int) else flag_feature
                 ds.loc[(ds[feature].isna()) & (ds[flag_feature] == 1), feature] = flag_replacement
                 ds.loc[(ds[feature].isna()) & (ds[flag_feature] == 0), feature] = replacement
@@ -411,7 +411,7 @@ def pattern_to_feature(ds, patterns, encoding='utf-8', header=0, index_col=0):
 
     '''
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
-    return [list(filter(lambda column: re.match(pattern, column), ds.columns))
+    return [list(filter(lambda column, p=pattern: re.match(p, column), ds.columns))
                 for pattern in (patterns if isinstance(patterns, list) else [patterns])]
 
 

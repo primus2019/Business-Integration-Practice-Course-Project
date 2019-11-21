@@ -10,7 +10,7 @@ from utils.Log import printlog
 def run():
     ds_path = 'data/data.csv'
     ds_smp_path = 'tmp/ds_smp.csv'
-    # ds_smp_path = ds_path
+    feature_selection_log = 'logs/feature_selection.log'
     ds_smp_spe_path = 'tmp/ds_smp_spe.csv'
     ds_smp_srt_path = 'tmp/ds_smp_srt.csv'
     flag_list = ['flag_specialList_c', 'flag_fraudrelation_g', 'flag_inforelation', 'flag_applyloanusury', 'flag_applyloanstr', 'flag_ConsumptionFeature', 'flag_consumption_c']
@@ -23,17 +23,22 @@ def run():
     ]
 
     Log.clear_log(creative=True)
+    Log.clear_log(file_path=feature_selection_log, creative=True)
     # ##################### EDA #####################
     # EDA_massive.EDA(ds_path, 'feature', encoding='gb18030')
     # EDA_massive.date_feature(ds_path, 'user_date', [0, 1], -1, 'tmp/date_feature.png', encoding='gb18030')
     #################### split sub dataset for test modelling #####################
-    Preprocess.split(ds_path, ds_smp_path, chunksize=1000, encoding='gb18030')
+    # Preprocess.split(ds_path, ds_smp_path, chunksize=1000, encoding='gb18030')
+    Preprocess.split(ds_path, ds_smp_path, fraction=1, shuffle=False, encoding='gb18030')
     # EDA_massive.EDA(ds_smp_path, 'feature', folder='tmp', encoding='gb18030')
     # EDA_massive.date_feature(ds_smp_path, 'user_date', [0, 1], -1, 'tmp/record_user_date_count.png', encoding='gb18030')
     ##################### necessary for afterward debugging #####################
     classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
     labels = EDA_massive.labels(ds_smp_srt_path, column=-1, encoding='gb18030')
-    
+    classed_preffix = [Temp_support.prefix_from_meta(fl) for fl in flag_list]
+    # for cf in classed_features:
+    #     EDA.feature_EDA(ds_smp_path, cf, encoding='gb18030')
+
 
     # #************************ preprocess ************************
     # ##################### data cleaning #####################
@@ -42,12 +47,16 @@ def run():
     # Preprocess.pop_feature(ds_smp_path, special_features, save_path=ds_smp_path, pop_path=ds_smp_spe_path, encoding='gb18030')
     #################### feature selection #####################
     #################### class 1 - sl #####################
-    class_1_preffix = ['^sl_id_', '^sl_cell_', '^sl_lm_cell_']
+    printlog('class 1 - sl')
+    class_1_preffix = classed_preffix[0]
     mut_exc_1_feature = Temp_support.feature_padding(ds_smp_path, classed_features[0], class_1_preffix, encoding='gb18030')
+    printlog('class 1 - original features: {}'.format(mut_exc_1_feature), printable=False)
     ## the class_1_gate_feature is essential for gateway classification
     class_1_gate_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_1_feature, -1, 0.9, encoding='gb18030')
+    printlog('class 1 - gate feature: {}'.format(class_1_gate_feature), file_path=feature_selection_log, printable=False)
     tocheck_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_1_feature, -1, 0.6, encoding='gb18030')
     tocheck_feature = [feature for feature in tocheck_feature if feature not in class_1_gate_feature]
+    printlog('class 1 - tocheck feature: {}'.format(tocheck_feature), file_path=feature_selection_log, printable=False)
     ## if the features are categorical features, put them into decision tree and derive the tree model
     fill_na = lambda x, f: Preprocess.fill_na(x, f, flag_feature=flag_list[0], save_path=ds_smp_path, flag_replacement=-1, encoding='gb18030')
     ## the class_1_tree is essential for tree classifier here
@@ -61,9 +70,10 @@ def run():
             export_path='tmp/class_1_tree.dot'
         )
     else:
-        printlog('class 1 - SpecialList: no feature to check with tree')
+        printlog('class 1 - tocheck feature: no feature to check with tree')
     ##################### class 2 - fr #####################
     ## note that classed_features[1] is updated here for label binarizer, new ds is saved at save_path in fill_cat
+    printlog('class 2 - fr')
     fill_na = lambda x, f: Preprocess.fill_na(x, f, flag_feature=flag_list[1], flag_replacement=-1, encoding='gb18030')
     fill_cat = lambda x, f: Preprocess.fill_cat(x, f, method='label_binarizer', save_path=ds_smp_path, encoding='gb18030')
     ## the class_2_tree, class_2_categorical_encoder, classed_feature[1] are essential for tree classifier here
@@ -77,18 +87,24 @@ def run():
         encoding='gb18030'
     )
     ##################### class 3 - ir #####################
-    class_3_preffix = [] # add here
-    mut_exc_3_feature = Temp_support.feature_padding(ds_smp_path, classed_features[2], class_3_preffix, encoding='gb18030')
+    ## no id/cell subclasses
+    printlog('class 3 - ir')
+    mut_exc_3_feature = classed_features[2]
+    printlog('class 3 - original features: {}'.format(mut_exc_3_feature), printable=False)
     ## all features are put into model
     class_3_feature = Feature_selection.hit_rate(ds_smp_path, mut_exc_3_feature, threshold=0.05, encoding='gb18030')
-    class_3_feature = Preprocess.fill_na(ds_smp_path, class_3_feature, flag_feature=flag_list[2], flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
+    Preprocess.fill_na(ds_smp_path, class_3_feature, flag_feature=flag_list[2], flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
+    printlog('class 3 - feature for model: {}'.format(class_3_feature), file_path=feature_selection_log, printable=False)
     ##################### class 4 - alu #####################
-    class_4_preffix = [] # add here
-    mut_exc_4_feature = Temp_support.feature_padding(ds_smp_path, classed_features[3], class_4_preffix, encoding='gb18030')
+    printlog('class 4 - alu')
+    mut_exc_4_feature = classed_features[3]
+    printlog('class 4 - original features: {}'.format(mut_exc_4_feature), printable=False)
     ## the class_4_gate_feature is essential for gateway classification
     class_4_gate_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_4_feature, -1, 0.9, encoding='gb18030')
+    printlog('class 4 - gate feature: {}'.format(class_4_gate_feature), file_path=feature_selection_log, printable=False)
     tocheck_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_4_feature, -1, 0.6, encoding='gb18030')
     tocheck_feature = [feature for feature in tocheck_feature if feature not in class_4_gate_feature]
+    printlog('class 4 - tocheck feature: {}'.format(tocheck_feature), file_path=feature_selection_log, printable=False)
     ## if the features are categorical features, put them into decision tree and derive the tree model
     fill_na = lambda x, f: Preprocess.fill_na(x, f, flag_feature=flag_list[3], save_path=ds_smp_path, flag_replacement=-1, encoding='gb18030')
     ## the class_4_tree is essential for tree classifier here
@@ -102,25 +118,34 @@ def run():
             export_path='tmp/class_4_tree.dot'
         )
     else:
-        printlog('class 4 - SpecialList: no feature to check with tree')
+        printlog('class 4 - tocheck feature: no feature to check with tree')
     ##################### class 5 - als #####################
-    class_5_preffix = [] # add here
+    printlog('class 5 - als')
+    class_5_preffix = classed_preffix[4]
     mut_exc_5_feature = Temp_support.feature_padding(ds_smp_path, classed_features[4], class_5_preffix, encoding='gb18030')
+    printlog('class 5 - original features: {}'.format(mut_exc_5_feature), printable=False)
     ## all features are put into model
     class_5_feature = Feature_selection.hit_rate(ds_smp_path, mut_exc_5_feature, threshold=0.05, encoding='gb18030')
-    class_5_feature = Preprocess.fill_na(ds_smp_path, class_5_feature, flag_feature=flag_list[4], flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
+    Preprocess.fill_na(ds_smp_path, class_5_feature, flag_feature=flag_list[4], flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
+    printlog('class 5 - feature for model: {}'.format(class_5_feature), file_path=feature_selection_log, printable=False)
     ##################### class 6 - cf #####################
-    class_6_preffix = [] # add here
-    mut_exc_6_feature = Temp_support.feature_padding(ds_smp_path, classed_features[5], class_6_preffix, encoding='gb18030')
+    ## no id/cell subclasses
+    printlog('class 6 - cf')
+    mut_exc_6_feature = classed_features[5]
+    printlog('class 6 - original features: {}'.format(mut_exc_6_feature), printable=False)
     ## all features are put into model
     class_6_feature = Feature_selection.hit_rate(ds_smp_path, mut_exc_6_feature, threshold=0.05, encoding='gb18030')
-    class_6_feature = Preprocess.fill_na(ds_smp_path, class_6_feature, flag_feature=flag_list[5], flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
+    Preprocess.fill_na(ds_smp_path, class_6_feature, flag_feature=flag_list[5], flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
+    printlog('class 6 - feature for model: {}'.format(class_6_feature), file_path=feature_selection_log, printable=False)
     ##################### class 7 - cons #####################
-    class_7_preffix = [] # add here
-    mut_exc_7_feature = Temp_support.feature_padding(ds_smp_path, classed_features[6], class_7_preffix, encoding='gb18030')
+    ## no id/cell subclasses
+    printlog('class 7 - cons')
+    mut_exc_7_feature = classed_features[6]
+    printlog('class 7 - original features: {}'.format(mut_exc_7_feature), printable=False)
     ## all features are put into model
     class_7_feature = Feature_selection.hit_rate(ds_smp_path, mut_exc_7_feature, threshold=0.05, encoding='gb18030')
-    class_7_feature = Preprocess.fill_na(ds_smp_path, class_7_feature, flag_feature=flag_list[6], flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
+    Preprocess.fill_na(ds_smp_path, class_7_feature, flag_feature=flag_list[6], flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
+    printlog('class 7 - feature for model: {}'.format(class_7_feature), file_path=feature_selection_log, printable=False)
 
     
 

@@ -19,4 +19,4 @@ def hit_positive_rate(ds, features, label_column, threshold, positive=1, encodin
 def hit_rate(ds, features, threshold, encoding='utf-8', header=0, index_col=0):
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     features = [features] if isinstance(features, str) else features
-    return list(filter(lambda column: ds[column].notna().sum() / ds.index.sum() > threshold, ds.columns))
+    return list(filter(lambda column: ds[column].notna().sum() / ds.shape[0] > threshold, features))
