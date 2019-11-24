@@ -45,16 +45,18 @@ def run():
     # ## unnecessary; if data cleaning is performed, the proceeding fill_cat will not work
     # special_features = reduce(lambda accum, fc: np.concatenate([accum, Preprocess.special_feature(ds_smp_path, fc)]), classed_features, np.array([]))
     # Preprocess.pop_feature(ds_smp_path, special_features, save_path=ds_smp_path, pop_path=ds_smp_spe_path, encoding='gb18030')
+
+
     #################### feature selection #####################
-    #################### class 1 - sl #####################
+    #################### class 1 - sl      #####################
     printlog('class 1 - sl')
-    class_1_preffix = classed_preffix[0]
-    mut_exc_1_feature = Temp_support.feature_padding(ds_smp_path, classed_features[0], class_1_preffix, encoding='gb18030')
+    ## mut_exc_1_feature = Temp_support.feature_padding(ds_smp_path, classed_features[0], classed_preffix[0], encoding='gb18030')
+    mut_exc_1_feature = Temp_support.feature_padding_on_hit_rate(ds_smp_path, classed_features[0], classed_preffix[0], encoding='gb18030')
     printlog('class 1 - original features: {}'.format(mut_exc_1_feature), printable=False)
     ## the class_1_gate_feature is essential for gateway classification
-    class_1_gate_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_1_feature, -1, 0.9, encoding='gb18030')
+    class_1_gate_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_1_feature, -1, 0.5, encoding='gb18030')
     printlog('class 1 - gate feature: {}'.format(class_1_gate_feature), file_path=feature_selection_log, printable=False)
-    tocheck_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_1_feature, -1, 0.6, encoding='gb18030')
+    tocheck_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_1_feature, -1, 0.1, encoding='gb18030')
     tocheck_feature = [feature for feature in tocheck_feature if feature not in class_1_gate_feature]
     printlog('class 1 - tocheck feature: {}'.format(tocheck_feature), file_path=feature_selection_log, printable=False)
     ## if the features are categorical features, put them into decision tree and derive the tree model
@@ -86,6 +88,11 @@ def run():
         export_path='tmp/class_2_tree.dot', 
         encoding='gb18030'
     )
+    ## 2-layer-tree sprouting on feature
+    Temp_support.two_layer_tree(ds_smp_path, classed_features[1][0], 
+        classed_features[1][1], -1, to_file='tmp/class_2_tree_new.dot', encoding='gb18030')
+    Temp_support.two_layer_tree(ds_smp_path, classed_features[1][1], 
+        classed_features[1][0], -1, to_file='tmp/class_2_tree_new_t.dot', encoding='gb18030')
     ##################### class 3 - ir #####################
     ## no id/cell subclasses
     printlog('class 3 - ir')
@@ -121,8 +128,11 @@ def run():
         printlog('class 4 - tocheck feature: no feature to check with tree')
     ##################### class 5 - als #####################
     printlog('class 5 - als')
-    class_5_preffix = classed_preffix[4]
-    mut_exc_5_feature = Temp_support.feature_padding(ds_smp_path, classed_features[4], class_5_preffix, encoding='gb18030')
+    als_preffix = ['^als_d7_id_', '^als_d15_id_', '^als_m1_id_', '^als_m3_id_', '^als_m6_id_', '^als_m12_id_', '^als_fst_id_', '^als_lst_id']
+    ## mut_exc_5_feature = []
+    ## for fc in Preprocess.pattern_to_feature(ds_smp_path, als_preffix, encoding='gb18030'):
+    ##     mut_exc_5_feature.extend(fc)
+    mut_exc_5_feature = Temp_support.feature_padding_on_hit_rate(ds_smp_path, classed_features[4], als_preffix, encoding='gb18030')
     printlog('class 5 - original features: {}'.format(mut_exc_5_feature), printable=False)
     ## all features are put into model
     class_5_feature = Feature_selection.hit_rate(ds_smp_path, mut_exc_5_feature, threshold=0.05, encoding='gb18030')
