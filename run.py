@@ -7,6 +7,12 @@ import itertools
 from sklearn import tree
 from utils.Log import printlog
 import winsound
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib
+from collections import Counter
+from xgboost import XGBClassifier
+from sklearn.model_selection import train_test_split
 
 def run():
     ds_path = 'data/data.csv'
@@ -23,6 +29,8 @@ def run():
         'tmp/ds_label_test.csv'
     ]
 
+    plt.rcParams['axes.unicode_minus'] = False
+    plt.rcParams['font.family'] = 'SimHei'
     Log.clear_log(creative=True)
     Log.clear_log(file_path=feature_selection_log, creative=True)
     # ##################### EDA #####################
@@ -148,21 +156,21 @@ def run():
     # else:
     #     printlog('class 4 - tocheck feature: no feature to check with tree')
     # ##################### class 5 - als #####################
-    printlog('class 5 - als')
-    ## class 5 variables
-    ds_c5                 = 'tmp/ds_c5_als.csv'
-    ds_c5_varied          = 'tmp/ds_c5_als_varied.csv'
-    ds_c5_varied_na       = 'tmp/ds_c5_als_varied_na.csv'
-    ds_c5_varied_cut_1 = 'tmp/ds_c5_als_varied_cut_1.csv'
-    ds_c5_varied_cut_2 = 'tmp/ds_c5_als_varied_cut_2.csv'
-    ds_c5_varied_cut_1_iv = 'iv/ds_c5_als_varied_iv_cut_1.csv'
-    ds_c5_varied_cut_2_iv = 'iv/ds_c5_als_varied_iv_cut_2.csv'
-    fe_c5_pattern   = '^als_'
-    log_fe_c5_iv_1  = 'features/fe_c5_als_iv_1.log'
-    log_fe_c5_iv_2  = 'features/fe_c5_als_iv_2.log'
-    als_preffix = [
-        ['^als_d7_id_', '^als_d15_id_', '^als_m1_id_', '^als_m3_id_', '^als_m6_id_', '^als_m12_id_', '^als_fst_id_', '^als_lst_id_'],
-        ['^als_d7_cell_', '^als_d15_cell_', '^als_m1_cell_', '^als_m3_cell_', '^als_m6_cell_', '^als_m12_cell_', '^als_fst_cell_', '^als_lst_cell_']]
+    # printlog('class 5 - als')
+    # ## class 5 variables
+    # ds_c5                 = 'tmp/ds_c5_als.csv'
+    # ds_c5_varied          = 'tmp/ds_c5_als_varied.csv'
+    # ds_c5_varied_na       = 'tmp/ds_c5_als_varied_na.csv'
+    # ds_c5_varied_cut_1 = 'tmp/ds_c5_als_varied_cut_1.csv'
+    # ds_c5_varied_cut_2 = 'tmp/ds_c5_als_varied_cut_2.csv'
+    # ds_c5_varied_cut_1_iv = 'iv/ds_c5_als_varied_iv_cut_1.csv'
+    # ds_c5_varied_cut_2_iv = 'iv/ds_c5_als_varied_iv_cut_2.csv'
+    # fe_c5_pattern   = '^als_'
+    # log_fe_c5_iv_1  = 'features/fe_c5_als_iv_1.log'
+    # log_fe_c5_iv_2  = 'features/fe_c5_als_iv_2.log'
+    # als_preffix = [
+    #     ['^als_d7_id_', '^als_d15_id_', '^als_m1_id_', '^als_m3_id_', '^als_m6_id_', '^als_m12_id_', '^als_fst_id_', '^als_lst_id_'],
+    #     ['^als_d7_cell_', '^als_d15_cell_', '^als_m1_cell_', '^als_m3_cell_', '^als_m6_cell_', '^als_m12_cell_', '^als_fst_cell_', '^als_lst_cell_']]
     # ## class 5 ds
     # fe_c5           = Preprocess.pattern_to_feature(ds_path, fe_c5_pattern, encoding='gb18030')[0]
     # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
@@ -208,7 +216,7 @@ def run():
     # ds_c6_cut_2 = 'tmp/ds_c6_ir_cut_2.csv'
     # ds_c6_iv_cut_1 = 'iv/ds_c6_ir_iv_cut_1.csv'
     # ds_c6_iv_cut_2 = 'iv/ds_c6_ir_iv_cut_2.csv'
-    # fe_c6_pattern = '^ir_'
+    # fe_c6_pattern = '^cf_'
     # fe_c6       = Preprocess.pattern_to_feature(ds_path, fe_c6_pattern, encoding='gb18030')[0]
     # log_fe_c6_iv_1  = 'features/fe_c6_ir_iv_1.log'
     # log_fe_c6_iv_2  = 'features/fe_c6_ir_iv_2.log'
@@ -232,20 +240,23 @@ def run():
     # printlog('class 7 - cf')
     # ## class 7 variables
     # ds_c7       = 'tmp/ds_c7_ir.csv'
+    # ds_c7_cat   = 'tmp/ds_c7_ir_cat.csv'
     # ds_c7_na    = 'tmp/ds_c7_ir_na.csv'
     # ds_c7_cut_1 = 'tmp/ds_c7_ir_cut_1.csv'
     # ds_c7_cut_2 = 'tmp/ds_c7_ir_cut_2.csv'
     # ds_c7_iv_cut_1 = 'iv/ds_c7_ir_iv_cut_1.csv'
     # ds_c7_iv_cut_2 = 'iv/ds_c7_ir_iv_cut_2.csv'
-    # fe_c7_pattern = '^ir_'
+    # fe_c7_pattern = '^cons_'
     # fe_c7       = Preprocess.pattern_to_feature(ds_path, fe_c7_pattern, encoding='gb18030')[0]
     # log_fe_c7_iv_1  = 'features/fe_c7_ir_iv_1.log'
     # log_fe_c7_iv_2  = 'features/fe_c7_ir_iv_2.log'
     # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
     # pd.concat([ds_t.loc[:, fe_c7], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c7, encoding='gb18030')
     # ## start of selection
+    # printlog('class 7 - fill cat')
+    # Preprocess.fill_cat(ds_c7, fe_c7, save_path=ds_c7_cat, encoding='gb18030')
     # printlog('class 7 - fill na')
-    # Preprocess.fill_na(ds_c7, fe_c7, replacement=-1, save_path=ds_c7_na, encoding='gb18030')
+    # Preprocess.fill_na(ds_c7_cat, fe_c7, replacement=-1, save_path=ds_c7_na, encoding='gb18030')
     # printlog('class 7 - cut 1')
     # Temp_support.cut(ds_c7_na, fe_c7, threshold=5, bin=5,   save_path=ds_c7_cut_1, encoding='gb18030')
     # printlog('class 7 - cut 2')
@@ -257,25 +268,344 @@ def run():
     # printlog('class 7 - saving')
     # Log.itersave(file_path=log_fe_c7_iv_1, iteritem=fe_c7_iv_1)
     # Log.itersave(file_path=log_fe_c7_iv_2, iteritem=fe_c7_iv_2)
+    # ##################### class 8 - pop #####################
+    # printlog('class 8 - pop')
+    # ## class 8 variables
+    # ds_c8       = 'data/pop.csv'
+    # ds_c8_na    = 'tmp/ds_c8_ir_na.csv'
+    # ds_c8_cut_1 = 'tmp/ds_c8_ir_cut_1.csv'
+    # ds_c8_cut_2 = 'tmp/ds_c8_ir_cut_2.csv'
+    # ds_c8_iv_cut_1 = 'iv/ds_c8_ir_iv_cut_1.csv'
+    # ds_c8_iv_cut_2 = 'iv/ds_c8_ir_iv_cut_2.csv'
+    # fe_c8_pattern = '^pd_'
+    # fe_c8       = Preprocess.pattern_to_feature(ds_c8, fe_c8_pattern, encoding='gb18030')[0]
+    # log_fe_c8_iv_1  = 'features/fe_c8_ir_iv_1.log'
+    # log_fe_c8_iv_2  = 'features/fe_c8_ir_iv_2.log'
+    # ds_t = pd.read_csv(ds_c8, encoding='gb18030', header=0, index_col=0)
+    # ds_origin_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
+    # pd.concat([ds_t.loc[:, fe_c8], ds_origin_t.iloc[:, -1]], axis=1).to_csv(ds_c8, encoding='gb18030')
+    # ## start of selection
+    # printlog('class 8 - fill na')
+    # Preprocess.fill_na(ds_c8, fe_c8, replacement=-1, save_path=ds_c8_na, encoding='gb18030')
+    # printlog('class 8 - cut 1')
+    # Temp_support.cut(ds_c8_na, fe_c8, threshold=5, bin=5,   method='equal-frequency', save_path=ds_c8_cut_1, encoding='gb18030')
+    # printlog('class 8 - cut 2')
+    # Temp_support.cut(ds_c8_na, fe_c8, threshold=10, bin=10, method='equal-frequency', save_path=ds_c8_cut_2, encoding='gb18030')
+    # printlog('class 8 - select by iv 1')
+    # fe_c8_iv_1 = Temp_support.select_feature_iv(ds_c8_cut_1, fe_c8, -1, 0.5, 0.3, to_file=ds_c8_iv_cut_1, encoding='gb18030')
+    # printlog('class 8 - select by iv 2')
+    # fe_c8_iv_2 = Temp_support.select_feature_iv(ds_c8_cut_2, fe_c8, -1, 0.5, 0.3, to_file=ds_c8_iv_cut_2, encoding='gb18030')
+    # printlog('class 8 - saving')
+    # Log.itersave(file_path=log_fe_c8_iv_1, iteritem=fe_c8_iv_1)
+    # Log.itersave(file_path=log_fe_c8_iv_2, iteritem=fe_c8_iv_2)
+    # ####################### feature selection on xgb #######################
+    # printlog('feature selection on xgb')
+    # classed_ds_na = [
+    #     'tmp/ds_c3_ir_na.csv', 'tmp/ds_c5_als_varied_na.csv', 'tmp/ds_c6_ir_na.csv',
+    #     'tmp/ds_c7_ir_na.csv', 'tmp/ds_c8_ir_na.csv'
+    # ]
+    # classed_ds_xgb = [
+    #     'xgb/ds_c3_na_xgb.csv', 'xgb/ds_c5_na_xgb.csv', 'xgb/ds_c6_na_xgb.csv',
+    #     'xgb/ds_c7_na_xgb.csv', 'xgb/ds_c8_na_xgb.csv'
+    # ]
+    # classed_ds_feature = [
+    #     'features/fe_c3_na_xgb.csv', 'features/fe_c5_na_xgb.csv', 'features/fe_c6_na_xgb.csv',
+    #     'features/fe_c7_na_xgb.csv', 'features/fe_c8_na_xgb.csv'
+    # ]
+    # for ds_na, ds_xgb, ds_feature in zip(classed_ds_na, classed_ds_xgb, classed_ds_feature):
+    #     xgb_t = XGBClassifier()
+    #     ds_t = pd.read_csv(ds_na, encoding='gb18030', header=0, index_col=0)
+    #     xgb_t.fit(ds_t.iloc[:, :-1].values, ds_t.iloc[:, -1].values)
+    #     pd.DataFrame(xgb_t.feature_importances_, index=ds_t.columns[:-1], columns=['xgb']).to_csv(ds_xgb)
+    #     top_indexing = xgb_t.feature_importances_.argsort()[-30:]
+    #     pd.read_csv(ds_xgb, header=0, index_col=0).iloc[top_indexing, :].to_csv(ds_feature)
+    # top_features = []
+    # for ds_feature in classed_ds_feature:
+    #     top_features.append(pd.read_csv(ds_feature, header=0, index_col=0))
+    # top_features = pd.concat(top_features, axis=0)
+    # top_features.iloc[top_features.loc[:, 'xgb'].values.argsort()[-30:], :].to_csv('features/top_features_xgb.csv')
 
-    
+    # ################### extract top 30 features by iv from every cutting and subclasses ###################
+    # printlog('feature selection on IV')
+    # from_folder, to_folder = 'iv/', 'features/'
+    # classed_ds_iv = [
+    #     'ds_c3_ir_iv_cut_1.csv', 'ds_c5_als_varied_iv_cut_1.csv', 'ds_c6_ir_iv_cut_1.csv', 
+    #     'ds_c3_ir_iv_cut_2.csv', 'ds_c5_als_varied_iv_cut_2.csv', 'ds_c6_ir_iv_cut_2.csv', 
+    #     'ds_c7_ir_iv_cut_1.csv', 'ds_c8_ir_iv_cut_1.csv',
+    #     'ds_c7_ir_iv_cut_2.csv', 'ds_c8_ir_iv_cut_2.csv'
+    # ]
+    # classed_log_iv = [
+    #     'fe_c3_ir_iv_1.csv', 'fe_c5_als_iv_1.csv', 'fe_c6_ir_iv_1.csv', 
+    #     'fe_c3_ir_iv_2.csv', 'fe_c5_als_iv_2.csv', 'fe_c6_ir_iv_2.csv', 
+    #     'fe_c7_ir_iv_1.csv', 'fe_c8_ir_iv_1.csv',
+    #     'fe_c7_ir_iv_2.csv', 'fe_c8_ir_iv_2.csv'
+    # ]
+    # ## extract top 30 features
+    # for i, (ds_iv, log_iv) in enumerate(zip(classed_ds_iv, classed_log_iv)):
+    #     ds_t = pd.read_csv(from_folder + ds_iv, header=0, index_col=0)
+    #     ds_t.sort_values(by='iv', ascending=False).head(30).to_csv(to_folder + log_iv)
+    # ## find features in common
+    # top_features = []
+    # for log_iv in classed_log_iv:
+    #     top_features.extend(pd.read_csv(to_folder + log_iv, header=0, index_col=0).index.tolist())
+    # top_features = [(str)(key) for key, value in Counter(top_features).items() if value == 2]
+    # print(top_features)
+    # top_features_row = []
+    # for log_iv in classed_log_iv:
+    #     for feature in top_features:
+    #         if feature in pd.read_csv(to_folder + log_iv, header=0, index_col=0).index:
+    #             top_features_row.append(pd.read_csv(to_folder + log_iv, header=0, index_col=0).loc[feature, :])
+    #             top_features_row[-1] = pd.DataFrame(top_features_row[-1].values, index=[feature], columns=['iv'])
+    # pd.concat(top_features_row).to_csv('features/common_top_features.csv')
+    # ## plotting the performance of top common features in cut 1 and cut 2
+    # ds_t = pd.read_csv('features/common_top_features.csv', header=0, index_col=0)
+    # cut_1_features = ds_t.iloc[0:(int)(ds_t.shape[0] / 2), :].values.tolist()
+    # cut_2_features = ds_t.iloc[(int)(ds_t.shape[0] / 2): , :].values.tolist()
+    # cut_1_features = [feature[0] for feature in cut_1_features]
+    # cut_2_features = [feature[0] for feature in cut_2_features]
+    # plt.hist([cut_1_features, cut_2_features], bins=20, label=['分箱数: 5', '分箱数: 10'])
+    # plt.xlabel('字段')
+    # plt.ylabel('IV值')
+    # plt.title('不同分箱中入模变量IV值表现情况')
+    # plt.legend()
+    # plt.savefig('misc/all_top30_common_iv.png')
+    # plt.close()
+
+
+
+
     # ##################### visualization class 5 - als #####################
-    ds_t = pd.read_csv(ds_c5, encoding='gb18030', header=0, index_col=0)
-    for i, prefix_class in enumerate(als_preffix):
-        df_list = []
-        for p in prefix_class:
-            features = Preprocess.pattern_to_feature(ds_t, p, encoding='gb18030')[0]
-            printlog('doing {}'.format(p))
-            for feature in features:
-                count_all   = ds_t.shape[0]
-                count_na    = ds_t.loc[:, feature].isna().sum()
-                count_notna = ds_t.loc[:, feature].notna().sum()
-                count_value = len(list(set(np.ravel(ds_t.loc[ds_t[feature].notna(), feature].values))))
-                df_list.append(pd.DataFrame([count_all, count_na, count_notna, count_value], 
-                    columns=[feature], index=['count_all', 'count_na', 'count_notna', 'count_value']))
-                # printlog(df_list[-1])
-        pd.concat(df_list, axis=1).to_csv('misc/als_{}.csv'.format(i))
-            
+    # printlog('visualization')
+    # ds_t = pd.read_csv(ds_c5, encoding='gb18030', header=0, index_col=0)
+    # for i, prefix_class in enumerate(als_preffix):
+    #     df_list = []
+    #     for p in prefix_class:
+    #         features = Preprocess.pattern_to_feature(ds_t, p, encoding='gb18030')[0]
+    #         printlog('doing {}'.format(p))
+    #         for feature in features:
+    #             count_all   = ds_t.shape[0]
+    #             count_na    = ds_t.loc[:, feature].isna().sum()
+    #             count_notna = ds_t.loc[:, feature].notna().sum()
+    #             count_value = len(list(set(np.ravel(ds_t.loc[ds_t[feature].notna(), feature].values))))
+    #             df_list.append(pd.DataFrame([count_all, count_na, count_notna, count_value], 
+    #                 columns=[feature], index=['count_all', 'count_na', 'count_notna', 'count_value']))
+    #             # printlog(df_list[-1])
+    #     pd.concat(df_list, axis=1).to_csv('misc/als_{}.csv'.format(i))
+
+    # ds_t_1 = pd.read_csv('misc/als_0.csv', header=0, index_col=0)
+    # ds_t_2 = pd.read_csv('misc/als_1.csv', header=0, index_col=0)
+    # ## value
+    # printlog('visualization - value')
+    # plt.hist([ds_t_1.loc['count_value', :], ds_t_2.loc['count_value', :]], color=['r', 'b'], 
+    #     alpha=0.3, label=['id子字段', 'cell子字段'])
+    # plt.xlabel('字段非空去重值数量')
+    # plt.ylabel('字段计数')
+    # plt.title('共债信息子字段取值情况')
+    # plt.legend()
+    # plt.savefig('misc/als_count_value.png')
+    # plt.close()
+    # ## na
+    # printlog('visualization - na')
+    # plt.hist([ds_t_1.loc['count_na', :], ds_t_2.loc['count_na', :]], color=['r', 'b'],
+    #     alpha=0.3, label=['id子字段', 'cell子字段'])
+    # plt.xlabel('字段空值数量')
+    # plt.ylabel('字段计数')
+    # plt.title('共债信息子字段空值情况')
+    # plt.legend()
+    # plt.savefig('misc/als_count_na.png')
+    # plt.close()
+    # ## iv
+    # printlog('visualization - iv')
+    # ds_t_1 = pd.read_csv('iv/ds_c5_als_varied_iv_cut_1_adjusted.csv', header=0, index_col=0)
+    # ds_t_2 = pd.read_csv('iv/ds_c5_als_varied_iv_cut_2_adjusted.csv', header=0, index_col=0)
+    # for i, ds_t in enumerate([ds_t_1, ds_t_2]):
+    #     fe_large   = Preprocess.index_pattern_to_feature(ds_t_1, '.*_large_.*')[0]
+    #     fe_small   = Preprocess.index_pattern_to_feature(ds_t_1, '.*_small_.*')[0]
+    #     fe_id      = Preprocess.index_pattern_to_feature(ds_t_1, '.*_id_.*')[0]
+    #     fe_cell    = Preprocess.index_pattern_to_feature(ds_t_1, '.*_cell_.*')[0]
+    #     sns.kdeplot(ds_t_1.loc[fe_large, :].T.values[0], label='large衍生字段', shade=False, legend=False, color='r', alpha=0.6)
+    #     sns.kdeplot(ds_t_1.loc[fe_small, :].T.values[0], label='small衍生字段', shade=False, legend=False, color='g', alpha=0.6)
+    #     sns.kdeplot(ds_t_1.loc[fe_id,    :].T.values[0], label='id衍生字段',    shade=False, legend=False, color='b', alpha=0.6)
+    #     sns.kdeplot(ds_t_1.loc[fe_cell,  :].T.values[0], label='cell衍生字段',  shade=False, legend=False, color='m', alpha=0.6)
+    #     plt.xlabel('字段IV值')
+    #     plt.ylabel('字段计数')
+    #     plt.title('共债信息衍生字段IV值表现情况 - 分箱 {}'.format(i + 1))
+    #     plt.legend()
+    #     plt.savefig('misc/als_iv_cut_{}.png'.format(i + 1))
+    #     plt.close()
+        
+    #     sns.distplot(ds_t_1.loc[fe_large, :].T.values[0], kde=True, bins=20, rug=True, label='large衍生字段')
+    #     table_data=[
+    #         ['(0.00, 0.02]',   (int)((ds_t_1.loc[fe_large, :] <= 0.02).sum())],
+    #         ['(0.02, 0.10]', (int)(((ds_t_1.loc[fe_large, :] > 0.02) & (ds_t_1.loc[fe_large, :] <= 0.1)).values.sum())],
+    #         ['(0.10, 0.30]',  (int)(((ds_t_1.loc[fe_large, :] > 0.1)  & (ds_t_1.loc[fe_large, :] <= 0.3)).values.sum())],
+    #         ['(0.30, 0.50]',  (int)(((ds_t_1.loc[fe_large, :] > 0.3)  & (ds_t_1.loc[fe_large, :] <= 0.5)).values.sum())],
+    #         ['> 0.50',        (int)((ds_t_1.loc[fe_large, :] > 0.5).sum())]
+    #     ]
+    #     table = plt.table(cellText=table_data, loc='bottom', cellLoc='left', 
+    #         bbox=[1.05, 0.6, 0.4, 0.4], colWidths=[0.27, 0.13])
+    #     table.auto_set_font_size(False)
+    #     table.set_fontsize(10)
+    #     plt.subplots_adjust(right=0.7)
+    #     plt.xlabel('字段IV值')
+    #     plt.ylabel('字段计数')
+    #     plt.xlim(right=0.65)
+    #     plt.ylim(top=10)
+    #     plt.title('共债信息衍生字段IV值表现情况 - 按值衍生(较大值) + 分箱 {}'.format(i + 1))
+    #     plt.legend()
+    #     plt.savefig('misc/als_iv_cut_{}_large.png'.format(i + 1))
+    #     plt.close()
+
+    #     sns.distplot(ds_t_1.loc[fe_small, :].T.values[0], kde=True, bins=20, rug=True, label='small衍生字段')
+    #     table_data=[
+    #         ['(0.00, 0.02]',   (int)((ds_t_1.loc[fe_small, :] <= 0.02).sum())],
+    #         ['(0.02, 0.10]', (int)(((ds_t_1.loc[fe_small, :] > 0.02) & (ds_t_1.loc[fe_small, :] <= 0.1)).values.sum())],
+    #         ['(0.10, 0.30]',  (int)(((ds_t_1.loc[fe_small, :] > 0.1)  & (ds_t_1.loc[fe_small, :] <= 0.3)).values.sum())],
+    #         ['(0.30, 0.50]',  (int)(((ds_t_1.loc[fe_small, :] > 0.3)  & (ds_t_1.loc[fe_small, :] <= 0.5)).values.sum())],
+    #         ['> 0.50',        (int)((ds_t_1.loc[fe_small, :] > 0.5).sum())]
+    #     ]
+    #     table = plt.table(cellText=table_data, loc='bottom', cellLoc='left', 
+    #         bbox=[1.05, 0.6, 0.4, 0.4], colWidths=[0.27, 0.13])
+    #     table.auto_set_font_size(False)
+    #     table.set_fontsize(10)
+    #     plt.subplots_adjust(right=0.7)
+    #     plt.xlabel('字段IV值')
+    #     plt.ylabel('字段计数')
+    #     plt.xlim(right=0.65)
+    #     plt.ylim(top=10)
+    #     plt.title('共债信息衍生字段IV值表现情况 - 按值衍生(较小值) + 分箱 {}'.format(i + 1))
+    #     plt.legend()
+    #     plt.savefig('misc/als_iv_cut_{}_small.png'.format(i + 1))
+    #     plt.close()
+
+    #     sns.distplot(ds_t_1.loc[fe_id, :].T.values[0], kde=True, bins=20, rug=True, label='id衍生字段')
+    #     table_data=[
+    #         ['(0.00, 0.02]',   (int)((ds_t_1.loc[fe_id, :] <= 0.02).sum())],
+    #         ['(0.02, 0.10]', (int)(((ds_t_1.loc[fe_id, :] > 0.02) & (ds_t_1.loc[fe_id, :] <= 0.1)).values.sum())],
+    #         ['(0.10, 0.30]',  (int)(((ds_t_1.loc[fe_id, :] > 0.1)  & (ds_t_1.loc[fe_id, :] <= 0.3)).values.sum())],
+    #         ['(0.30, 0.50]',  (int)(((ds_t_1.loc[fe_id, :] > 0.3)  & (ds_t_1.loc[fe_id, :] <= 0.5)).values.sum())],
+    #         ['> 0.50',        (int)((ds_t_1.loc[fe_id, :] > 0.5).sum())]
+    #     ]
+    #     table = plt.table(cellText=table_data, loc='bottom', cellLoc='left', 
+    #         bbox=[1.05, 0.6, 0.4, 0.4], colWidths=[0.27, 0.13])
+    #     table.auto_set_font_size(False)
+    #     table.set_fontsize(10)
+    #     plt.subplots_adjust(right=0.7)
+    #     plt.xlabel('字段IV值')
+    #     plt.ylabel('字段计数')
+    #     plt.xlim(right=0.65)
+    #     plt.ylim(top=10)
+    #     plt.title('共债信息衍生字段IV值表现情况 - 按字段衍生(id) + 分箱 {}'.format(i + 1))
+    #     plt.legend()
+    #     plt.savefig('misc/als_iv_cut_{}_id.png'.format(i + 1))
+    #     plt.close()
+
+    #     sns.distplot(ds_t_1.loc[fe_cell, :].T.values[0], kde=True, bins=20, rug=True, label='cell衍生字段')
+    #     table_data=[
+    #         ['(0.00, 0.02]',   (int)((ds_t_1.loc[fe_cell, :] <= 0.02).sum())],
+    #         ['(0.02, 0.10]', (int)(((ds_t_1.loc[fe_cell, :] > 0.02) & (ds_t_1.loc[fe_cell, :] <= 0.1)).values.sum())],
+    #         ['(0.10, 0.30]',  (int)(((ds_t_1.loc[fe_cell, :] > 0.1)  & (ds_t_1.loc[fe_cell, :] <= 0.3)).values.sum())],
+    #         ['(0.30, 0.50]',  (int)(((ds_t_1.loc[fe_cell, :] > 0.3)  & (ds_t_1.loc[fe_cell, :] <= 0.5)).values.sum())],
+    #         ['> 0.50',        (int)((ds_t_1.loc[fe_cell, :] > 0.5).sum())]
+    #     ]
+    #     table = plt.table(cellText=table_data, loc='bottom', cellLoc='left', 
+    #         bbox=[1.05, 0.6, 0.4, 0.4], colWidths=[0.27, 0.13])
+    #     table.auto_set_font_size(False)
+    #     table.set_fontsize(10)
+    #     plt.subplots_adjust(right=0.7)
+    #     plt.xlabel('字段IV值')
+    #     plt.ylabel('字段计数')
+    #     plt.xlim(right=0.65)
+    #     plt.ylim(top=10)
+    #     plt.title('共债信息衍生字段IV值表现情况 - 按字段衍生(cell) + 分箱 {}'.format(i + 1))
+    #     plt.legend()
+    #     plt.savefig('misc/als_iv_cut_{}_cell.png'.format(i + 1))
+    #     plt.close()
+    
+
+    ######################### train on Logistic ###################################
+    features = [
+        'cons_tot_m12_visits',
+        'cf_prob_max',
+        'als_m6_id_rel_allnum',
+        'als_m12_id_nbank_tot_mons',
+        'ir_m3_id_x_cell_cnt',
+        'ir_m6_id_x_name_cnt'
+    ]
+    pop_features = [
+
+    ]
+    ds_final = 'data/merge_selected'
+    ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
+    pop_t = pd.read_csv('data/pop.csv', encoding='gb18030', header=0, index_col=0)
+    pd.concat([pop_t.loc[:, pop_features], ds_t.loc[:, features], ds_t.iloc[:, -1]], axis=1).to_csv(ds_final)
+    ds_t = pd.read_csv(ds_final, header=0, index_col=0)
+    Preprocess.fill_cat(ds_final, ds_t.columns[:-1], save_path=ds_final)
+    ds_t = pd.read_csv(ds_final, header=0, index_col=0)
+    Preprocess.fill_na(ds_final, ds_t.columns[:-1], replacement=-1, save_path=ds_final)
+    ds_t = pd.read_csv(ds_final, header=0, index_col=0)
+    xgb_t = XGBClassifier()
+    # for column in ds_t.columns[:-1]:
+    #     printlog(column)
+    #     printlog(len(Temp_support.feature_woe(ds_final, column, -1)[0]))
+    #     ds_t.loc[:, column] = Temp_support.feature_woe(ds_final, column, -1)[0]
+    # ds_t.to_csv('data/merge_selected_woe.csv')
+
+    # ds_t = pd.read_csv('data/merge_selected_woe.csv', header=0, index_col=0)
+    # xgb_t.fit(train_fe, train_lb)
+    # prediction = xgb_t.predict_proba(test_fe).tolist()
+    train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], ds_t.iloc[:, -1], train_size=0.7, random_state=1)
+    # for i, pre in enumerate(prediction):
+    #     prediction[i] = pre[1]
+    # plt.scatter(prediction, test_lb, s=0.3, label='测试集表现')
+    # plt.title('XGB预测表现')
+    # plt.xlabel('XGB预测值分布')
+    # plt.ylabel('测试集标签值分布')
+    # plt.legend()
+    # plt.savefig('misc/xgb_1.png')
+    # plt.close()
+    # sns.distplot(prediction, bins=15, label='XGB预测值')
+    # sns.distplot(test_lb,    bins=15, label='测试集标签值')
+    # plt.title('XGB预测表现KDE-直方图')
+    # plt.xlabel('标签/预测值')
+    # plt.ylabel('标签/预测值分布')
+    # plt.legend()
+    # plt.savefig('misc/xgb.png')
+    # plt.close()
+    ############################ LR #########################
+    from sklearn.linear_model import LogisticRegression
+    clf = LogisticRegression()
+    clf.fit(train_fe, train_lb)
+    prediction = clf.predict_proba(test_fe).tolist()
+    for i, pre in enumerate(prediction):
+        prediction[i] = pre[1]
+    plt.scatter(prediction, test_lb, s=0.3, label='测试集表现')
+    plt.title('Logistic预测表现')
+    plt.xlabel('Logistic预测值分布')
+    plt.ylabel('测试集标签值分布')
+    plt.legend()
+    plt.savefig('misc/lr_1.png')
+    plt.close()
+    sns.distplot(prediction, bins=15, label='Logistic预测值')
+    sns.distplot(test_lb,    bins=15, label='测试集标签值')
+    plt.title('Logistic预测表现KDE-直方图')
+    plt.xlabel('标签/预测值')
+    plt.ylabel('标签/预测值分布')
+    plt.legend()
+    plt.savefig('misc/lr.png')
+    plt.close()
+
+    # from sklearn.linear_model import LogisticRegression
+    # clf = LogisticRegression(random_state=0).fit(train_fe.values, train_lb.values)
+    # cnt_crt, cnt = 0, 0
+    # prediction = clf.predict(test_fe.values)
+    # for predict, truth in zip(prediction, test_lb.values):
+    #     if predict == truth:
+    #         cnt_crt += 1
+    #     cnt += 1
+    # printlog('test correction rate: {}'.format(cnt_crt / cnt))
+    
+
 
     winsound.Beep(600,1000)
 

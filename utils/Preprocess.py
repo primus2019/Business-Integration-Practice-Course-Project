@@ -414,6 +414,24 @@ def pattern_to_feature(ds, patterns, encoding='utf-8', header=0, index_col=0):
     return [list(filter(lambda column, p=pattern: re.match(p, column), ds.columns))
                 for pattern in (patterns if isinstance(patterns, list) else [patterns])]
 
+                
+def index_pattern_to_feature(ds, patterns, encoding='utf-8', header=0, index_col=0):
+    '''
+    # Params:
+
+    ds: str/pd.DataFrame, dataset
+
+    patterns: regrex format list of str
+
+    # Returns:
+
+    List of features that fit the given regrex in patterns
+
+    '''
+    ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
+    return [list(filter(lambda column, p=pattern: re.match(p, column), ds.index))
+                for pattern in (patterns if isinstance(patterns, list) else [patterns])]
+
 
 def clean_outlier(ds, features, measure='std', threshold=3, method='set_na', save_path=None, encoding='utf-8', header=0, index_col=0):
     '''

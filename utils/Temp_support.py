@@ -150,6 +150,7 @@ def feature_woe(ds, features, label_column, features_value=None, encoding='utf-8
         (((ds[ds[column] == value][label_column] == labels[1]).sum() + 0.5) / (ds[label_column] == labels[1]).sum())),
         fv)) for fv, column in zip(features_value, features)]
 
+
 def feature_iv(ds, features, label_column, features_woe=None, encoding='utf-8', header=0, index_col=0):
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     features = [features] if isinstance(features, (str, int)) else features
@@ -162,7 +163,8 @@ def feature_iv(ds, features, label_column, features_woe=None, encoding='utf-8', 
     
     return [reduce(lambda total, value, column=column:
         total + 
-        ((ds[ds[column] == value][label_column] == labels[0]).sum() - (ds[ds[column] == value][label_column] == labels[1]).sum()) / ds.shape[0] * 
+        (((ds[ds[column] == value][label_column] == labels[0]).sum() / (ds[label_column] == labels[0]).sum()) - 
+        ((ds[ds[column] == value][label_column] == labels[1]).sum()  / (ds[label_column] == labels[1]).sum())) * 
         np.log(
         (((ds[ds[column] == value][label_column] == labels[0]).sum() + 0.5) / (ds[label_column] == labels[0]).sum()) / 
         (((ds[ds[column] == value][label_column] == labels[1]).sum() + 0.5) / (ds[label_column] == labels[1]).sum())
@@ -195,6 +197,6 @@ def cut(ds, features, threshold=10, bin=10, method='equal-distance', save_path=N
         if method == 'equal-distance':
             ds.loc[:, feature] = pd.cut(ds[feature], bin)
         elif method == 'equal-frequency':
-            ds.loc[:, feature] = pd.qcut(ds[feature], bin)
+            ds.loc[:, feature] = pd.qcut(ds[feature], bin, duplicates='drop')
     if save_path:
         ds.to_csv(save_path, encoding=encoding)
