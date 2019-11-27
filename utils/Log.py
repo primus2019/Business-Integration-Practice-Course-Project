@@ -44,3 +44,8 @@ def clear_log(file_path='logs/default.log', encoding='utf-8', creative=False):
     assert os.path.isdir(os.path.dirname(file_path)), 'Log.clear_log: directory {} does not exist'.format(file_path)
     assert os.path.isfile(file_path), 'Log.clear_log: file {} does not exist'.format(os.path.basename(file_path))
     open(file_path, 'w').close()
+
+def itersave(file_path, iteritem, encoding='utf-8'):
+    with open(file_path, 'w+') as file:
+        for item in iteritem:
+            file.write('{}\n'.format(item))

@@ -8,7 +8,7 @@ import os
 from utils.Log import printlog
 
 
-def feature_EDA(ds, features, label_column=None, encoding='utf-8', header=0, index_col=0):
+def feature_EDA(ds, features, label_column=None, encoding='utf-8', printable=True, header=0, index_col=0):
     '''
     # Params:
 
@@ -29,7 +29,7 @@ def feature_EDA(ds, features, label_column=None, encoding='utf-8', header=0, ind
             list(set(np.ravel(ds[feature].values.dtype))),
             list(ds[ds[feature].notna()][feature].value_counts().values),
             list(ds[ds[feature].notna()][label_column].value_counts().values) if label_column else '(label_column not given)'
-        ))
+        ), printable=printable)
 
 
 def feature_na(ds, features, encoding='utf-8', header=0, index_col=0):
