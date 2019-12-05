@@ -285,7 +285,7 @@ def split_measure(label_train, label_test, labels, encoding='utf-8', header=0, i
 
 
 def fill_na(ds, features, replacement=-99, flag_feature=None, flag_replacement=None, save_path=None, 
-    largeset=False, encoding='utf-8', header=0, index_col=0):
+    largeset=False, encoding='utf-8', header=0, index_col=0, informative=True):
     '''
     # Params:
 
@@ -308,6 +308,7 @@ def fill_na(ds, features, replacement=-99, flag_feature=None, flag_replacement=N
     Replace na data of given features, replace with flag_replacement if flag_feature is 1.
 
     '''
+    printlog('Preprocess.fill_na: started.', printable=informative)
     if not largeset:
         ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
         features = [features] if isinstance(features, str) else features
@@ -323,6 +324,7 @@ def fill_na(ds, features, replacement=-99, flag_feature=None, flag_replacement=N
                 raise Exception('still na')
         if save_path:
             ds.to_csv(save_path, encoding=encoding)
+        printlog('Preprocess.fill_na: finished.', printable=informative)
         return ds
     elif largeset:
         pass

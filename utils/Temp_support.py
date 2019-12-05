@@ -172,7 +172,8 @@ def feature_iv(ds, features, label_column, features_woe=None, encoding='utf-8', 
         0) for fv, column in zip(features_value, features)]
     
     
-def select_feature_iv(ds, features, label_column, strict_upper_bound, strict_lower_bound, to_file=None, encoding='utf-8', header=0, index_col=0):
+def select_feature_iv(ds, features, label_column, strict_upper_bound, strict_lower_bound, to_file=None, encoding='utf-8', header=0, index_col=0, informative=True):
+    printlog('Temp_support.select_feature_iv: started.', printable=informative)
     assert strict_upper_bound > strict_lower_bound, 'Temp_support.select_feature_iv: strict_upper_bound should be larger than strict_lowr_bound'
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     features = [features] if isinstance(features, (str, int)) else features
@@ -186,7 +187,8 @@ def select_feature_iv(ds, features, label_column, strict_upper_bound, strict_low
     return [feature for feature, iv in zip(features, features_iv) if iv > strict_lower_bound and iv < strict_upper_bound]
 
 
-def cut(ds, features, threshold=10, bin=10, method='equal-distance', save_path=None, encoding='utf-8', header=0, index_col=0):
+def cut(ds, features, threshold=10, bin=10, method='equal-distance', save_path=None, encoding='utf-8', header=0, index_col=0, informative=True):
+    printlog('Temp_support.cut: started.', printable=informative)
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     features = [features] if isinstance(features, (str, int)) else features
     features = [ds.columns[f] if isinstance(f, int) else f for f in features]
@@ -200,3 +202,4 @@ def cut(ds, features, threshold=10, bin=10, method='equal-distance', save_path=N
             ds.loc[:, feature] = pd.qcut(ds[feature], bin, duplicates='drop')
     if save_path:
         ds.to_csv(save_path, encoding=encoding)
+    printlog('Temp_support.cut: finished.', printable=informative)

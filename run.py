@@ -1,18 +1,17 @@
 from utils import EDA_massive, Preprocess, Log, EDA, Feature_selection, Model, Temp_support
-
-import numpy as np
-import pandas as pd
-from functools import reduce
-import itertools
-from sklearn import tree
 from utils.Log import printlog
-import winsound
-import seaborn as sns
-import matplotlib.pyplot as plt
-import matplotlib
-from collections import Counter
-from xgboost import XGBClassifier
+
 from sklearn.model_selection import train_test_split
+from xgboost import XGBClassifier
+from collections import Counter
+import matplotlib.pyplot as plt
+from functools import reduce
+from sklearn import tree
+import seaborn as sns
+import pandas as pd
+import numpy as np
+import itertools
+import winsound
 
 def run():
     ds_path = 'data/data.csv'
@@ -33,15 +32,7 @@ def run():
     plt.rcParams['font.family'] = 'SimHei'
     Log.clear_log(creative=True)
     Log.clear_log(file_path=feature_selection_log, creative=True)
-    # ##################### EDA #####################
-    # EDA_massive.EDA(ds_path, 'feature', encoding='gb18030')
-    # EDA_massive.date_feature(ds_path, 'user_date', [0, 1], -1, 'tmp/date_feature.png', encoding='gb18030')
-    #################### split sub dataset for test modelling #####################
-    # Preprocess.split(ds_path, ds_smp_path, chunksize=1000, encoding='gb18030')
-    # Preprocess.split(ds_path, ds_smp_path, fraction=1, shuffle=False, encoding='gb18030') ###
-    # EDA_massive.EDA(ds_smp_path, 'feature', folder='tmp', encoding='gb18030')
-    # EDA_massive.date_feature(ds_smp_path, 'user_date', [0, 1], -1, 'tmp/record_user_date_count.png', encoding='gb18030')
-    ##################### necessary for afterward debugging #####################
+    # #################### necessary for afterward debugging #####################
     # classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
     # labels = EDA_massive.labels(ds_smp_srt_path, column=-1, encoding='gb18030')
     # classed_preffix = [Temp_support.prefix_from_meta(fl) for fl in flag_list]
@@ -102,35 +93,43 @@ def run():
     #     classed_features[1][1], -1, to_file='tmp/class_2_tree_new.dot', encoding='gb18030')
     # Temp_support.two_layer_tree(ds_smp_path, classed_features[1][1], 
     #     classed_features[1][0], -1, to_file='tmp/class_2_tree_new_t.dot', encoding='gb18030')
-    # ##################### class 3 - ir #####################
-    # printlog('class 3 - ir')
-    # ## class 3 variables
-    # ds_c3       = 'tmp/ds_c3_ir.csv'
-    # ds_c3_na    = 'tmp/ds_c3_ir_na.csv'
-    # ds_c3_cut_1 = 'tmp/ds_c3_ir_cut_1.csv'
-    # ds_c3_cut_2 = 'tmp/ds_c3_ir_cut_2.csv'
-    # ds_c3_iv_cut_1 = 'iv/ds_c3_ir_iv_cut_1.csv'
-    # ds_c3_iv_cut_2 = 'iv/ds_c3_ir_iv_cut_2.csv'
-    # fe_c3_pattern = '^ir_'
-    # fe_c3       = Preprocess.pattern_to_feature(ds_path, fe_c3_pattern, encoding='gb18030')[0]
-    # log_fe_c3_iv_1  = 'features/fe_c3_ir_iv_1.log'
-    # log_fe_c3_iv_2  = 'features/fe_c3_ir_iv_2.log'
-    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pd.concat([ds_t.loc[:, fe_c3], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c3, encoding='gb18030')
-    # ## start of selection
-    # printlog('class 3 - fill na')
-    # Preprocess.fill_na(ds_c3, fe_c3, replacement=-1, save_path=ds_c3_na, encoding='gb18030')
-    # printlog('class 3 - cut 1')
-    # Temp_support.cut(ds_c3_na, fe_c3, threshold=5, bin=5,   save_path=ds_c3_cut_1, encoding='gb18030')
-    # printlog('class 3 - cut 2')
-    # Temp_support.cut(ds_c3_na, fe_c3, threshold=10, bin=10, save_path=ds_c3_cut_2, encoding='gb18030')
-    # printlog('class 3 - select by iv 1')
-    # fe_c3_iv_1 = Temp_support.select_feature_iv(ds_c3_cut_1, fe_c3, -1, 0.5, 0.3, to_file=ds_c3_iv_cut_1, encoding='gb18030')
-    # printlog('class 3 - select by iv 2')
-    # fe_c3_iv_2 = Temp_support.select_feature_iv(ds_c3_cut_2, fe_c3, -1, 0.5, 0.3, to_file=ds_c3_iv_cut_2, encoding='gb18030')
-    # printlog('class 3 - saving')
-    # Log.itersave(file_path=log_fe_c3_iv_1, iteritem=fe_c3_iv_1)
-    # Log.itersave(file_path=log_fe_c3_iv_2, iteritem=fe_c3_iv_2)
+    ##################### class 3 - ir #####################
+    ''' data flow:
+        ds_c[n]                 raw dataset
+        ds_c[n]_na              after na data are filled
+        ds_c[n]_cut[1/2]        after data are cut by method 1/2
+        iv_c[n]_cut[1/2]        dataset of features as rows and IVs as columns
+        fe_c[n]_cut[1/2]_iv     dataset of features as rows and IVs as columns
+        fe_c[n]_pattern         prefix pattern for class features
+        fe_c[n]                 list of class features strings
+        log_fe_c3_[1/2]         log of choosen features
+    '''
+    printlog('class 3 - ir')
+    ## class 3 variables
+    ds_c3         = 'tmp/ds_c3.csv'
+    ds_c3_na      = 'tmp/ds_c3_na.csv'
+    ds_c3_cut1    = 'tmp/ds_c3_cut1.csv'
+    ds_c3_cut2    = 'tmp/ds_c3_cut2.csv'
+    iv_c3_cut1    = 'iv/iv_c3_cut1.csv'
+    iv_c3_cut2    = 'iv/iv_c3_cut2.csv'
+    fe_c3_cut1_iv = 'features/fe_c3_cut1_iv.log'
+    fe_c3_cut2_iv = 'features/fe_c3_cut2_iv.log'
+    fe_c3_pattern = '^ir_'
+    fe_c3         = Preprocess.pattern_to_feature(ds_path, fe_c3_pattern, encoding='gb18030')[0]
+    ## extract of class and label feture
+    ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
+    pd.concat([ds_t.loc[:, fe_c3], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c3, encoding='gb18030')
+    ## start of selection
+    Preprocess.fill_na(ds_c3, fe_c3, replacement=-1, save_path=ds_c3_na, encoding='gb18030')
+    Temp_support.cut(ds_c3_na, fe_c3, threshold=5, bin=5,   save_path=ds_c3_cut1, encoding='gb18030')
+    Temp_support.cut(ds_c3_na, fe_c3, threshold=10, bin=10, save_path=ds_c3_cut2, encoding='gb18030')
+    printlog('class 3 - select by iv 1')
+    fe_c3_iv_1 = Temp_support.select_feature_iv(ds_c3_cut1, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut1, encoding='gb18030')
+    printlog('class 3 - select by iv 2')
+    fe_c3_iv_2 = Temp_support.select_feature_iv(ds_c3_cut2, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut2, encoding='gb18030')
+    printlog('class 3 - saving')
+    Log.itersave(file_path=fe_c3_cut1_iv, iteritem=fe_c3_iv_1)
+    Log.itersave(file_path=fe_c3_cut2_iv, iteritem=fe_c3_iv_2)
     # ##################### class 4 - alu #####################
     # printlog('class 4 - alu')
     # mut_exc_4_feature = classed_features[3]
@@ -523,77 +522,77 @@ def run():
     #     plt.close()
     
 
-    ######################### train on Logistic ###################################
-    features = [
-        'cons_tot_m12_visits',
-        'cf_prob_max',
-        'als_m6_id_rel_allnum',
-        'als_m12_id_nbank_tot_mons',
-        'ir_m3_id_x_cell_cnt',
-        'ir_m6_id_x_name_cnt'
-    ]
-    pop_features = [
+    # ######################### train on Logistic ###################################
+    # features = [
+    #     'cons_tot_m12_visits',
+    #     'cf_prob_max',
+    #     'als_m6_id_rel_allnum',
+    #     'als_m12_id_nbank_tot_mons',
+    #     'ir_m3_id_x_cell_cnt',
+    #     'ir_m6_id_x_name_cnt'
+    # ]
+    # pop_features = [
 
-    ]
-    ds_final = 'data/merge_selected'
-    ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    pop_t = pd.read_csv('data/pop.csv', encoding='gb18030', header=0, index_col=0)
-    pd.concat([pop_t.loc[:, pop_features], ds_t.loc[:, features], ds_t.iloc[:, -1]], axis=1).to_csv(ds_final)
-    ds_t = pd.read_csv(ds_final, header=0, index_col=0)
-    Preprocess.fill_cat(ds_final, ds_t.columns[:-1], save_path=ds_final)
-    ds_t = pd.read_csv(ds_final, header=0, index_col=0)
-    Preprocess.fill_na(ds_final, ds_t.columns[:-1], replacement=-1, save_path=ds_final)
-    ds_t = pd.read_csv(ds_final, header=0, index_col=0)
-    xgb_t = XGBClassifier()
-    # for column in ds_t.columns[:-1]:
-    #     printlog(column)
-    #     printlog(len(Temp_support.feature_woe(ds_final, column, -1)[0]))
-    #     ds_t.loc[:, column] = Temp_support.feature_woe(ds_final, column, -1)[0]
-    # ds_t.to_csv('data/merge_selected_woe.csv')
+    # ]
+    # ds_final = 'data/merge_selected'
+    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
+    # pop_t = pd.read_csv('data/pop.csv', encoding='gb18030', header=0, index_col=0)
+    # pd.concat([pop_t.loc[:, pop_features], ds_t.loc[:, features], ds_t.iloc[:, -1]], axis=1).to_csv(ds_final)
+    # ds_t = pd.read_csv(ds_final, header=0, index_col=0)
+    # Preprocess.fill_cat(ds_final, ds_t.columns[:-1], save_path=ds_final)
+    # ds_t = pd.read_csv(ds_final, header=0, index_col=0)
+    # Preprocess.fill_na(ds_final, ds_t.columns[:-1], replacement=-1, save_path=ds_final)
+    # ds_t = pd.read_csv(ds_final, header=0, index_col=0)
+    # xgb_t = XGBClassifier()
+    # # for column in ds_t.columns[:-1]:
+    # #     printlog(column)
+    # #     printlog(len(Temp_support.feature_woe(ds_final, column, -1)[0]))
+    # #     ds_t.loc[:, column] = Temp_support.feature_woe(ds_final, column, -1)[0]
+    # # ds_t.to_csv('data/merge_selected_woe.csv')
 
-    # ds_t = pd.read_csv('data/merge_selected_woe.csv', header=0, index_col=0)
-    # xgb_t.fit(train_fe, train_lb)
-    # prediction = xgb_t.predict_proba(test_fe).tolist()
-    train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], ds_t.iloc[:, -1], train_size=0.7, random_state=1)
+    # # ds_t = pd.read_csv('data/merge_selected_woe.csv', header=0, index_col=0)
+    # # xgb_t.fit(train_fe, train_lb)
+    # # prediction = xgb_t.predict_proba(test_fe).tolist()
+    # train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], ds_t.iloc[:, -1], train_size=0.7, random_state=1)
+    # # for i, pre in enumerate(prediction):
+    # #     prediction[i] = pre[1]
+    # # plt.scatter(prediction, test_lb, s=0.3, label='测试集表现')
+    # # plt.title('XGB预测表现')
+    # # plt.xlabel('XGB预测值分布')
+    # # plt.ylabel('测试集标签值分布')
+    # # plt.legend()
+    # # plt.savefig('misc/xgb_1.png')
+    # # plt.close()
+    # # sns.distplot(prediction, bins=15, label='XGB预测值')
+    # # sns.distplot(test_lb,    bins=15, label='测试集标签值')
+    # # plt.title('XGB预测表现KDE-直方图')
+    # # plt.xlabel('标签/预测值')
+    # # plt.ylabel('标签/预测值分布')
+    # # plt.legend()
+    # # plt.savefig('misc/xgb.png')
+    # # plt.close()
+    # ############################ LR #########################
+    # from sklearn.linear_model import LogisticRegression
+    # clf = LogisticRegression()
+    # clf.fit(train_fe, train_lb)
+    # prediction = clf.predict_proba(test_fe).tolist()
     # for i, pre in enumerate(prediction):
     #     prediction[i] = pre[1]
     # plt.scatter(prediction, test_lb, s=0.3, label='测试集表现')
-    # plt.title('XGB预测表现')
-    # plt.xlabel('XGB预测值分布')
+    # plt.title('Logistic预测表现')
+    # plt.xlabel('Logistic预测值分布')
     # plt.ylabel('测试集标签值分布')
     # plt.legend()
-    # plt.savefig('misc/xgb_1.png')
+    # plt.savefig('misc/lr_1.png')
     # plt.close()
-    # sns.distplot(prediction, bins=15, label='XGB预测值')
+    # sns.distplot(prediction, bins=15, label='Logistic预测值')
     # sns.distplot(test_lb,    bins=15, label='测试集标签值')
-    # plt.title('XGB预测表现KDE-直方图')
+    # plt.title('Logistic预测表现KDE-直方图')
     # plt.xlabel('标签/预测值')
     # plt.ylabel('标签/预测值分布')
     # plt.legend()
-    # plt.savefig('misc/xgb.png')
+    # plt.savefig('misc/lr.png')
     # plt.close()
-    ############################ LR #########################
-    from sklearn.linear_model import LogisticRegression
-    clf = LogisticRegression()
-    clf.fit(train_fe, train_lb)
-    prediction = clf.predict_proba(test_fe).tolist()
-    for i, pre in enumerate(prediction):
-        prediction[i] = pre[1]
-    plt.scatter(prediction, test_lb, s=0.3, label='测试集表现')
-    plt.title('Logistic预测表现')
-    plt.xlabel('Logistic预测值分布')
-    plt.ylabel('测试集标签值分布')
-    plt.legend()
-    plt.savefig('misc/lr_1.png')
-    plt.close()
-    sns.distplot(prediction, bins=15, label='Logistic预测值')
-    sns.distplot(test_lb,    bins=15, label='测试集标签值')
-    plt.title('Logistic预测表现KDE-直方图')
-    plt.xlabel('标签/预测值')
-    plt.ylabel('标签/预测值分布')
-    plt.legend()
-    plt.savefig('misc/lr.png')
-    plt.close()
 
     # from sklearn.linear_model import LogisticRegression
     # clf = LogisticRegression(random_state=0).fit(train_fe.values, train_lb.values)
