@@ -6,6 +6,8 @@ import math
 from utils import Preprocess
 from utils.Log import printlog
 from functools import reduce
+from sklearn.tree import DecisionTreeClassifier
+from collections import Counter
 
 
 def feature_padding(ds, features, preffix_patterns, encoding='utf-8', header=0, index_col=0):
@@ -156,23 +158,36 @@ def feature_iv(ds, features, label_column, features_woe=None, encoding='utf-8', 
     features = [features] if isinstance(features, (str, int)) else features
     features = [ds.columns[f] if isinstance(f, int) else f for f in features]
     label_column = ds.columns[label_column] if isinstance(label_column, int) else label_column
-    labels = list(set(np.ravel(ds[[label_column]].values)))
-    features_value = [list(set(np.ravel(ds[[column]].values))) for column in features]
+    # labels = list(set(np.ravel(ds[[label_column]].values)))
+    # features_value = [list(set(np.ravel(ds[[column]].values))) for column in features]
     # if not features_woe:
     #     features_woe = feature_woe(ds, features, label_column, features_value=features_value, encoding=encoding, header=header, index_col=index_col)
+    ivs = []
+    for feature in features:
+        d = pd.DataFrame({'feature': ds[feature], 'label': ds[label_column]})
+        d = d.groupby('feature', as_index=False).agg({'label': ['count', 'sum']})
+        d.columns = ['feature_value', 'label_count', 'label_1']
+        d['label_0'] = d['label_count'] - d['label_1']
+        d['percent_label_1'] = np.maximum(d['label_1'], 0.5) / d['label_1'].sum()
+        d['percent_label_0'] = np.maximum(d['label_0'], 0.5) / d['label_0'].sum()
+        d['woe'] = np.log(d['percent_label_1'] / d['percent_label_0'])
+        d['iv'] = d['woe'] * (d['percent_label_1'] - d['percent_label_0'])
+        ivs.append(d['iv'].sum())
+    return ivs
+
+    # return [reduce(lambda total, value, column=column:
+    #     total + 
+    #     (((ds[ds[column] == value][label_column] == labels[0]).sum() / (ds[label_column] == labels[0]).sum()) - 
+    #     ((ds[ds[column] == value][label_column] == labels[1]).sum()  / (ds[label_column] == labels[1]).sum())) * 
+    #     np.log(
+    #     (((ds[ds[column] == value][label_column] == labels[0]).sum() + 0.5) / (ds[label_column] == labels[0]).sum()) / 
+    #     (((ds[ds[column] == value][label_column] == labels[1]).sum() + 0.5) / (ds[label_column] == labels[1]).sum())
+    #     ),fv,
+    #     0) for fv, column in zip(features_value, features)]
     
-    return [reduce(lambda total, value, column=column:
-        total + 
-        (((ds[ds[column] == value][label_column] == labels[0]).sum() / (ds[label_column] == labels[0]).sum()) - 
-        ((ds[ds[column] == value][label_column] == labels[1]).sum()  / (ds[label_column] == labels[1]).sum())) * 
-        np.log(
-        (((ds[ds[column] == value][label_column] == labels[0]).sum() + 0.5) / (ds[label_column] == labels[0]).sum()) / 
-        (((ds[ds[column] == value][label_column] == labels[1]).sum() + 0.5) / (ds[label_column] == labels[1]).sum())
-        ),fv,
-        0) for fv, column in zip(features_value, features)]
     
-    
-def select_feature_iv(ds, features, label_column, strict_upper_bound, strict_lower_bound, to_file=None, encoding='utf-8', header=0, index_col=0, informative=True):
+def select_feature_iv(ds, features, label_column, strict_upper_bound, strict_lower_bound, 
+    to_file=None, encoding='utf-8', header=0, index_col=0, informative=True):
     printlog('Temp_support.select_feature_iv: started.', printable=informative)
     assert strict_upper_bound > strict_lower_bound, 'Temp_support.select_feature_iv: strict_upper_bound should be larger than strict_lowr_bound'
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
@@ -184,22 +199,60 @@ def select_feature_iv(ds, features, label_column, strict_upper_bound, strict_low
         printlog('Temp_support.select_feature_iv: saving to path {}...'.format(to_file))
         pd.DataFrame(features_iv, index=features, columns=['iv']).to_csv(to_file, encoding=encoding)
     printlog('Temp_support.select_feature_iv: temporary feature iv: {}'.format([(feature, iv) for feature, iv in zip(features, features_iv)]), printable=False)
+    printlog('Temp_support.select_feature_iv: finished.', printable=informative)
     return [feature for feature, iv in zip(features, features_iv) if iv > strict_lower_bound and iv < strict_upper_bound]
 
 
-def cut(ds, features, threshold=10, bin=10, method='equal-distance', save_path=None, encoding='utf-8', header=0, index_col=0, informative=True):
+def cut(ds, features, threshold=10, bin=None, method='equal-distance', label_column=None, save_path=None, encoding='utf-8', header=0, index_col=0, informative=True):
     printlog('Temp_support.cut: started.', printable=informative)
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     features = [features] if isinstance(features, (str, int)) else features
     features = [ds.columns[f] if isinstance(f, int) else f for f in features]
     assert not ds.loc[:, features].isna().values.any(), 'Temp_support.cut: ds should not contain na data'
-    features = [feature for feature in features if len(list(set(np.ravel(ds[[feature]].values)))) > threshold]
+    # features = [feature for feature in features if len(list(set(np.ravel(ds[[feature]].values)))) > threshold]
+    features = [feature for feature in features if ds[feature].unique().size > threshold]
     for feature in features:
         printlog('Temp_support.cut: cutting {}'.format(feature), printable=False)
         if method == 'equal-distance':
+            assert bin, 'Temp_support.cut: bin should be input'
             ds.loc[:, feature] = pd.cut(ds[feature], bin)
         elif method == 'equal-frequency':
+            assert bin, 'Temp_support.cut: bin should be input'
             ds.loc[:, feature] = pd.qcut(ds[feature], bin, duplicates='drop')
+        elif method == 'optimal':
+            assert label_column, 'Temp_support: optimal cut should give label column'
+            label_column = ds.columns[label_column] if isinstance(label_column, int) else label_column
+            max_depth = (int)(np.log2(bin)) + 1 if bin else 4
+            min_leaf = (int)(ds[feature].unique().size / (2 ** max_depth)) + 1
+            print(optimal_cut(ds[feature], ds[label_column], max_depth, min_leaf))
+                # (int)(np.log2(ds[feature].unique().size)) - 2))
     if save_path:
         ds.to_csv(save_path, encoding=encoding)
     printlog('Temp_support.cut: finished.', printable=informative)
+
+
+def optimal_cut(feature_column, label_column, max_depth, min_leaf=None):
+    print('max_depth: {}'.format(max_depth))
+    print('min_leaf: {}'.format(min_leaf))
+    min_leaf = 0.01 if not min_leaf else min_leaf
+    threshold = None
+    tree = DecisionTreeClassifier(max_depth=max_depth, min_samples_leaf=min_leaf)
+    tree.fit(feature_column.to_numpy().reshape(-1, 1), label_column)
+    threshold = Counter(tree.tree_.threshold)
+    threshold.pop(threshold.most_common(1)[0][0])
+    threshold = sorted(list(threshold.keys()))
+    assert len(threshold) > 0, 'Temp_support.optimal_cut: classify failure'
+    if threshold[0] <= feature_column.min():
+        threshold[0] = -math.inf
+    else:
+        threshold.insert(0, -math.inf)
+    if threshold[-1] >= feature_column.max():
+        threshold[-1] = math.inf
+    else:
+        threshold.append(math.inf)
+    # for i, thresh in enumerate(threshold):
+    #     threshold
+    # feature_column.apply(lambda x: [])
+    return threshold
+    
+

@@ -330,7 +330,8 @@ def fill_na(ds, features, replacement=-99, flag_feature=None, flag_replacement=N
         pass
 
 
-def fill_cat(ds, features, method='label_encoder', save_path=None, largeset=False, encoding='utf-8', header=0, index_col=0):
+def fill_cat(ds, features, method='label_encoder', save_path=None, largeset=False, 
+    encoding='utf-8', header=0, index_col=0, informative=True):
     '''
     # Introductions: 
 
@@ -360,6 +361,7 @@ def fill_cat(ds, features, method='label_encoder', save_path=None, largeset=Fals
     List of new features(the newly-generated features are not inserted in the middle for label binarizer)
 
     '''
+    printlog('Preprocess.fill_cat: started.', printable=informative)
     if not largeset:
         ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
         features = [features] if isinstance(features, str) else features
@@ -394,6 +396,7 @@ def fill_cat(ds, features, method='label_encoder', save_path=None, largeset=Fals
         if save_path:
             ds.to_csv(save_path, encoding=encoding)
         # print(ds.loc[:, features].head())
+        printlog('Preprocess.fill_cat: finished.', printable=informative)
         return ds, encoder, features
     elif largeset:
         pass

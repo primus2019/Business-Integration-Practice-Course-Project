@@ -93,43 +93,6 @@ def run():
     #     classed_features[1][1], -1, to_file='tmp/class_2_tree_new.dot', encoding='gb18030')
     # Temp_support.two_layer_tree(ds_smp_path, classed_features[1][1], 
     #     classed_features[1][0], -1, to_file='tmp/class_2_tree_new_t.dot', encoding='gb18030')
-    ##################### class 3 - ir #####################
-    ''' data flow:
-        ds_c[n]                 raw dataset
-        ds_c[n]_na              after na data are filled
-        ds_c[n]_cut[1/2]        after data are cut by method 1/2
-        iv_c[n]_cut[1/2]        dataset of features as rows and IVs as columns
-        fe_c[n]_cut[1/2]_iv     dataset of features as rows and IVs as columns
-        fe_c[n]_pattern         prefix pattern for class features
-        fe_c[n]                 list of class features strings
-        log_fe_c3_[1/2]         log of choosen features
-    '''
-    printlog('class 3 - ir')
-    ## class 3 variables
-    ds_c3         = 'tmp/ds_c3.csv'
-    ds_c3_na      = 'tmp/ds_c3_na.csv'
-    ds_c3_cut1    = 'tmp/ds_c3_cut1.csv'
-    ds_c3_cut2    = 'tmp/ds_c3_cut2.csv'
-    iv_c3_cut1    = 'iv/iv_c3_cut1.csv'
-    iv_c3_cut2    = 'iv/iv_c3_cut2.csv'
-    fe_c3_cut1_iv = 'features/fe_c3_cut1_iv.log'
-    fe_c3_cut2_iv = 'features/fe_c3_cut2_iv.log'
-    fe_c3_pattern = '^ir_'
-    fe_c3         = Preprocess.pattern_to_feature(ds_path, fe_c3_pattern, encoding='gb18030')[0]
-    ## extract of class and label feture
-    ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    pd.concat([ds_t.loc[:, fe_c3], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c3, encoding='gb18030')
-    ## start of selection
-    Preprocess.fill_na(ds_c3, fe_c3, replacement=-1, save_path=ds_c3_na, encoding='gb18030')
-    Temp_support.cut(ds_c3_na, fe_c3, threshold=5, bin=5,   save_path=ds_c3_cut1, encoding='gb18030')
-    Temp_support.cut(ds_c3_na, fe_c3, threshold=10, bin=10, save_path=ds_c3_cut2, encoding='gb18030')
-    printlog('class 3 - select by iv 1')
-    fe_c3_iv_1 = Temp_support.select_feature_iv(ds_c3_cut1, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut1, encoding='gb18030')
-    printlog('class 3 - select by iv 2')
-    fe_c3_iv_2 = Temp_support.select_feature_iv(ds_c3_cut2, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut2, encoding='gb18030')
-    printlog('class 3 - saving')
-    Log.itersave(file_path=fe_c3_cut1_iv, iteritem=fe_c3_iv_1)
-    Log.itersave(file_path=fe_c3_cut2_iv, iteritem=fe_c3_iv_2)
     # ##################### class 4 - alu #####################
     # printlog('class 4 - alu')
     # mut_exc_4_feature = classed_features[3]
@@ -165,8 +128,8 @@ def run():
     # ds_c5_varied_cut_1_iv = 'iv/ds_c5_als_varied_iv_cut_1.csv'
     # ds_c5_varied_cut_2_iv = 'iv/ds_c5_als_varied_iv_cut_2.csv'
     # fe_c5_pattern   = '^als_'
-    # log_fe_c5_iv_1  = 'features/fe_c5_als_iv_1.log'
-    # log_fe_c5_iv_2  = 'features/fe_c5_als_iv_2.log'
+    # fe_c5_cut1_iv  = 'features/fe_c5_als_iv_1.log'
+    # fe_c5_cut2_iv  = 'features/fe_c5_als_iv_2.log'
     # als_preffix = [
     #     ['^als_d7_id_', '^als_d15_id_', '^als_m1_id_', '^als_m3_id_', '^als_m6_id_', '^als_m12_id_', '^als_fst_id_', '^als_lst_id_'],
     #     ['^als_d7_cell_', '^als_d15_cell_', '^als_m1_cell_', '^als_m3_cell_', '^als_m6_cell_', '^als_m12_cell_', '^als_fst_cell_', '^als_lst_cell_']]
@@ -204,99 +167,115 @@ def run():
     # printlog('class 5 - select by iv 2')
     # fe_c5_iv_2 = Temp_support.select_feature_iv(ds_c5_varied_cut_2, fe_c5_varied, -1, 0.5, 0.3, to_file=ds_c5_varied_cut_2_iv, encoding='gb18030')
     # printlog('class 5 - saving')
-    # Log.itersave(file_path=log_fe_c5_iv_1, iteritem=fe_c5_iv_1)
-    # Log.itersave(file_path=log_fe_c5_iv_2, iteritem=fe_c5_iv_2)
+    # Log.itersave(file_path=fe_c5_cut1_iv, iteritem=fe_c5_iv_1)
+    # Log.itersave(file_path=fe_c5_cut2_iv, iteritem=fe_c5_iv_2)
+    ##################### class 3 - ir #####################
+    ''' data flow:
+        ds_c[n]                 raw dataset
+        ds_c[n]_na              after na data are filled
+        ds_c[n]_cut[1/2]        after data are cut by method 1/2
+        iv_c[n]_cut[1/2]        dataset of features as rows and IVs as columns
+        fe_c[n]_cut[1/2]_iv     dataset of features as rows and IVs as columns
+        fe_c[n]_pattern         prefix pattern for class features
+        fe_c[n]                 list of class features strings
+    '''
+    printlog('class 3 - ir')
+    ## class 3 variables
+    ds_c3         = 'tmp/ds_c3.csv'
+    ds_c3_na      = 'tmp/ds_c3_na.csv'
+    ds_c3_cut1    = 'tmp/ds_c3_cut1.csv'
+    ds_c3_cut2    = 'tmp/ds_c3_cut2.csv'
+    iv_c3_cut1    = 'iv/iv_c3_cut1.csv'
+    iv_c3_cut2    = 'iv/iv_c3_cut2.csv'
+    fe_c3_cut1_iv = 'features/fe_c3_cut1_iv.log'
+    fe_c3_cut2_iv = 'features/fe_c3_cut2_iv.log'
+    fe_c3_pattern = '^ir_'
+    fe_c3         = Preprocess.pattern_to_feature(ds_path, fe_c3_pattern, encoding='gb18030')[0]
+    # ## extract class and label feture
+    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
+    # pd.concat([ds_t.loc[:, fe_c3], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c3, encoding='gb18030')
+    # ## start of selection
+    # Preprocess.fill_na(ds_c3, fe_c3, replacement=-1, save_path=ds_c3_na, encoding='gb18030')
+    # Temp_support.cut(ds_c3_na, fe_c3, threshold=5, bin=5,   save_path=ds_c3_cut1, encoding='gb18030')
+    # Temp_support.cut(ds_c3_na, fe_c3, threshold=10, bin=10, save_path=ds_c3_cut2, encoding='gb18030')
+    # Log.itersave(file_path=fe_c3_cut1_iv, iteritem=
+    #   Temp_support.select_feature_iv(ds_c3_cut1, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut1, encoding='gb18030'))
+    # Log.itersave(file_path=fe_c3_cut2_iv, iteritem=
+    #   Temp_support.select_feature_iv(ds_c3_cut2, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut2, encoding='gb18030'))
+    printlog(Temp_support.cut(ds_c3_na, fe_c3, method='optimal', label_column=-1, encoding='gb18030'))
     # ##################### class 6 - cf #####################
     # printlog('class 6 - cf')
     # ## class 6 variables
-    # ds_c6       = 'tmp/ds_c6_ir.csv'
-    # ds_c6_na    = 'tmp/ds_c6_ir_na.csv'
-    # ds_c6_cut_1 = 'tmp/ds_c6_ir_cut_1.csv'
-    # ds_c6_cut_2 = 'tmp/ds_c6_ir_cut_2.csv'
-    # ds_c6_iv_cut_1 = 'iv/ds_c6_ir_iv_cut_1.csv'
-    # ds_c6_iv_cut_2 = 'iv/ds_c6_ir_iv_cut_2.csv'
-    # fe_c6_pattern = '^cf_'
+    # ds_c6          = 'tmp/ds_c6.csv'
+    # ds_c6_na       = 'tmp/ds_c6_na.csv'
+    # ds_c6_cut1     = 'tmp/ds_c6_cut1.csv'
+    # ds_c6_cut2     = 'tmp/ds_c6_cut2.csv'
+    # iv_c6_cut1     = 'iv/iv_c6_cut1.csv'
+    # iv_c6_cut2     = 'iv/iv_c6_cut2.csv'
+    # fe_c6_cut1_iv  = 'features/fe_c6_cut1_iv.log'
+    # fe_c6_cut2_iv  = 'features/fe_c6_cut2_iv.log'
+    # fe_c6_pattern  = '^cf_'
     # fe_c6       = Preprocess.pattern_to_feature(ds_path, fe_c6_pattern, encoding='gb18030')[0]
-    # log_fe_c6_iv_1  = 'features/fe_c6_ir_iv_1.log'
-    # log_fe_c6_iv_2  = 'features/fe_c6_ir_iv_2.log'
+    # ## extract class and label features
     # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
     # pd.concat([ds_t.loc[:, fe_c6], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c6, encoding='gb18030')
     # ## start of selection
-    # printlog('class 6 - fill na')
     # Preprocess.fill_na(ds_c6, fe_c6, replacement=-1, save_path=ds_c6_na, encoding='gb18030')
-    # printlog('class 6 - cut 1')
-    # Temp_support.cut(ds_c6_na, fe_c6, threshold=5, bin=5,   save_path=ds_c6_cut_1, encoding='gb18030')
-    # printlog('class 6 - cut 2')
-    # Temp_support.cut(ds_c6_na, fe_c6, threshold=10, bin=10, save_path=ds_c6_cut_2, encoding='gb18030')
-    # printlog('class 6 - select by iv 1')
-    # fe_c6_iv_1 = Temp_support.select_feature_iv(ds_c6_cut_1, fe_c6, -1, 0.5, 0.3, to_file=ds_c6_iv_cut_1, encoding='gb18030')
-    # printlog('class 6 - select by iv 2')
-    # fe_c6_iv_2 = Temp_support.select_feature_iv(ds_c6_cut_2, fe_c6, -1, 0.5, 0.3, to_file=ds_c6_iv_cut_2, encoding='gb18030')
-    # printlog('class 6 - saving')
-    # Log.itersave(file_path=log_fe_c6_iv_1, iteritem=fe_c6_iv_1)
-    # Log.itersave(file_path=log_fe_c6_iv_2, iteritem=fe_c6_iv_2)
+    # Temp_support.cut(ds_c6_na, fe_c6, threshold=5, bin=5,   save_path=ds_c6_cut1, encoding='gb18030')
+    # Temp_support.cut(ds_c6_na, fe_c6, threshold=10, bin=10, save_path=ds_c6_cut2, encoding='gb18030')
+    # Log.itersave(file_path=fe_c6_cut1_iv, iteritem=Temp_support.select_feature_iv(ds_c6_cut1, fe_c6, -1, 0.5, 0.3, to_file=iv_c6_cut1, encoding='gb18030'))
+    # Log.itersave(file_path=fe_c6_cut2_iv, iteritem=Temp_support.select_feature_iv(ds_c6_cut2, fe_c6, -1, 0.5, 0.3, to_file=iv_c6_cut2, encoding='gb18030'))
     # ##################### class 7 - cons #####################
-    # printlog('class 7 - cf')
+    # printlog('class 7 - cons')
     # ## class 7 variables
-    # ds_c7       = 'tmp/ds_c7_ir.csv'
-    # ds_c7_cat   = 'tmp/ds_c7_ir_cat.csv'
-    # ds_c7_na    = 'tmp/ds_c7_ir_na.csv'
-    # ds_c7_cut_1 = 'tmp/ds_c7_ir_cut_1.csv'
-    # ds_c7_cut_2 = 'tmp/ds_c7_ir_cut_2.csv'
-    # ds_c7_iv_cut_1 = 'iv/ds_c7_ir_iv_cut_1.csv'
-    # ds_c7_iv_cut_2 = 'iv/ds_c7_ir_iv_cut_2.csv'
-    # fe_c7_pattern = '^cons_'
-    # fe_c7       = Preprocess.pattern_to_feature(ds_path, fe_c7_pattern, encoding='gb18030')[0]
-    # log_fe_c7_iv_1  = 'features/fe_c7_ir_iv_1.log'
-    # log_fe_c7_iv_2  = 'features/fe_c7_ir_iv_2.log'
+    # ds_c7          = 'tmp/ds_c7.csv'
+    # ds_c7_cat      = 'tmp/ds_c7_cat.csv'
+    # ds_c7_na       = 'tmp/ds_c7_na.csv'
+    # ds_c7_cut1     = 'tmp/ds_c7_cut1.csv'
+    # ds_c7_cut2     = 'tmp/ds_c7_cut2.csv'
+    # iv_c7_cut1     = 'iv/iv_c7_cut1.csv'
+    # iv_c7_cut2     = 'iv/iv_c7_cut2.csv'
+    # fe_c7_cut1_iv  = 'features/fe_c7_cut1_iv.log'
+    # fe_c7_cut2_iv  = 'features/fe_c7_cut2_iv.log'
+    # fe_c7_pattern  = '^cons_'
+    # fe_c7          = Preprocess.pattern_to_feature(ds_path, fe_c7_pattern, encoding='gb18030')[0]
+    # ## extract class and flag features
     # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
     # pd.concat([ds_t.loc[:, fe_c7], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c7, encoding='gb18030')
     # ## start of selection
-    # printlog('class 7 - fill cat')
     # Preprocess.fill_cat(ds_c7, fe_c7, save_path=ds_c7_cat, encoding='gb18030')
-    # printlog('class 7 - fill na')
     # Preprocess.fill_na(ds_c7_cat, fe_c7, replacement=-1, save_path=ds_c7_na, encoding='gb18030')
-    # printlog('class 7 - cut 1')
-    # Temp_support.cut(ds_c7_na, fe_c7, threshold=5, bin=5,   save_path=ds_c7_cut_1, encoding='gb18030')
-    # printlog('class 7 - cut 2')
-    # Temp_support.cut(ds_c7_na, fe_c7, threshold=10, bin=10, save_path=ds_c7_cut_2, encoding='gb18030')
-    # printlog('class 7 - select by iv 1')
-    # fe_c7_iv_1 = Temp_support.select_feature_iv(ds_c7_cut_1, fe_c7, -1, 0.5, 0.3, to_file=ds_c7_iv_cut_1, encoding='gb18030')
-    # printlog('class 7 - select by iv 2')
-    # fe_c7_iv_2 = Temp_support.select_feature_iv(ds_c7_cut_2, fe_c7, -1, 0.5, 0.3, to_file=ds_c7_iv_cut_2, encoding='gb18030')
-    # printlog('class 7 - saving')
-    # Log.itersave(file_path=log_fe_c7_iv_1, iteritem=fe_c7_iv_1)
-    # Log.itersave(file_path=log_fe_c7_iv_2, iteritem=fe_c7_iv_2)
+    # Temp_support.cut(ds_c7_na, fe_c7, threshold=5, bin=5,   save_path=ds_c7_cut1, encoding='gb18030')
+    # Temp_support.cut(ds_c7_na, fe_c7, threshold=10, bin=10, save_path=ds_c7_cut2, encoding='gb18030')
+    # Log.itersave(file_path=fe_c7_cut1_iv, iteritem=
+    #     Temp_support.select_feature_iv(ds_c7_cut1, fe_c7, -1, 0.5, 0.3, to_file=iv_c7_cut1, encoding='gb18030'))
+    # Log.itersave(file_path=fe_c7_cut2_iv, iteritem=
+    #     Temp_support.select_feature_iv(ds_c7_cut2, fe_c7, -1, 0.5, 0.3, to_file=iv_c7_cut2, encoding='gb18030'))
     # ##################### class 8 - pop #####################
     # printlog('class 8 - pop')
     # ## class 8 variables
-    # ds_c8       = 'data/pop.csv'
-    # ds_c8_na    = 'tmp/ds_c8_ir_na.csv'
-    # ds_c8_cut_1 = 'tmp/ds_c8_ir_cut_1.csv'
-    # ds_c8_cut_2 = 'tmp/ds_c8_ir_cut_2.csv'
-    # ds_c8_iv_cut_1 = 'iv/ds_c8_ir_iv_cut_1.csv'
-    # ds_c8_iv_cut_2 = 'iv/ds_c8_ir_iv_cut_2.csv'
-    # fe_c8_pattern = '^pd_'
-    # fe_c8       = Preprocess.pattern_to_feature(ds_c8, fe_c8_pattern, encoding='gb18030')[0]
-    # log_fe_c8_iv_1  = 'features/fe_c8_ir_iv_1.log'
-    # log_fe_c8_iv_2  = 'features/fe_c8_ir_iv_2.log'
+    # ds_c8          = 'data/pop.csv'
+    # ds_c8_na       = 'tmp/ds_c8_na.csv'
+    # ds_c8_cut1     = 'tmp/ds_c8_cut1.csv'
+    # ds_c8_cut2     = 'tmp/ds_c8_cut2.csv'
+    # iv_c8_cut1     = 'iv/iv_c8_cut1.csv'
+    # iv_c8_cut2     = 'iv/iv_c8_cut2.csv'
+    # fe_c8_cut1_iv  = 'features/fe_c8_cut1_iv.log'
+    # fe_c8_cut2_iv  = 'features/fe_c8_cut2_iv.log'
+    # fe_c8_pattern  = '^pd_'
+    # fe_c8          = Preprocess.pattern_to_feature(ds_c8, fe_c8_pattern, encoding='gb18030')[0]
+    # ## extract class and flag features
     # ds_t = pd.read_csv(ds_c8, encoding='gb18030', header=0, index_col=0)
     # ds_origin_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pd.concat([ds_t.loc[:, fe_c8], ds_origin_t.iloc[:, -1]], axis=1).to_csv(ds_c8, encoding='gb18030')
+    # pd.concat([ds_t.loc[:, fe_c8], ds_origin_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_c8, encoding='gb18030')
     # ## start of selection
-    # printlog('class 8 - fill na')
     # Preprocess.fill_na(ds_c8, fe_c8, replacement=-1, save_path=ds_c8_na, encoding='gb18030')
-    # printlog('class 8 - cut 1')
-    # Temp_support.cut(ds_c8_na, fe_c8, threshold=5, bin=5,   method='equal-frequency', save_path=ds_c8_cut_1, encoding='gb18030')
-    # printlog('class 8 - cut 2')
-    # Temp_support.cut(ds_c8_na, fe_c8, threshold=10, bin=10, method='equal-frequency', save_path=ds_c8_cut_2, encoding='gb18030')
-    # printlog('class 8 - select by iv 1')
-    # fe_c8_iv_1 = Temp_support.select_feature_iv(ds_c8_cut_1, fe_c8, -1, 0.5, 0.3, to_file=ds_c8_iv_cut_1, encoding='gb18030')
-    # printlog('class 8 - select by iv 2')
-    # fe_c8_iv_2 = Temp_support.select_feature_iv(ds_c8_cut_2, fe_c8, -1, 0.5, 0.3, to_file=ds_c8_iv_cut_2, encoding='gb18030')
-    # printlog('class 8 - saving')
-    # Log.itersave(file_path=log_fe_c8_iv_1, iteritem=fe_c8_iv_1)
-    # Log.itersave(file_path=log_fe_c8_iv_2, iteritem=fe_c8_iv_2)
+    # Temp_support.cut(ds_c8_na, fe_c8, threshold=5, bin=5,   method='equal-frequency', save_path=ds_c8_cut1, encoding='gb18030')
+    # Temp_support.cut(ds_c8_na, fe_c8, threshold=10, bin=10, method='equal-frequency', save_path=ds_c8_cut2, encoding='gb18030')
+    # Log.itersave(file_path=fe_c8_cut1_iv, iteritem=
+    #     Temp_support.select_feature_iv(ds_c8_cut1, fe_c8, -1, 0.5, 0.3, to_file=iv_c8_cut1, encoding='gb18030'))
+    # Log.itersave(file_path=fe_c8_cut2_iv, iteritem=
+    #     Temp_support.select_feature_iv(ds_c8_cut2, fe_c8, -1, 0.5, 0.3, to_file=iv_c8_cut2, encoding='gb18030'))
     # ####################### feature selection on xgb #######################
     # printlog('feature selection on xgb')
     # classed_ds_na = [
@@ -606,7 +585,6 @@ def run():
     
 
 
-    winsound.Beep(600,1000)
 
 
 
@@ -706,3 +684,4 @@ def run():
 
 if __name__ == '__main__':
     run()
+    winsound.Beep(600,1000)
