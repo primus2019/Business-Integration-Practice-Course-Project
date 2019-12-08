@@ -224,7 +224,7 @@ def cut(ds, features, threshold=10, bin=None, method='equal-distance', label_col
             label_column = ds.columns[label_column] if isinstance(label_column, int) else label_column
             max_depth = (int)(np.log2(bin)) + 1 if bin else 4
             min_leaf = (int)(ds[feature].unique().size / (2 ** max_depth)) + 1
-            print(optimal_cut(ds[feature], ds[label_column], max_depth, min_leaf))
+            ds.loc[:, feature] = optimal_cut(ds[feature], ds[label_column], max_depth, min_leaf)
                 # (int)(np.log2(ds[feature].unique().size)) - 2))
     if save_path:
         ds.to_csv(save_path, encoding=encoding)
@@ -243,16 +243,19 @@ def optimal_cut(feature_column, label_column, max_depth, min_leaf=None):
     threshold = sorted(list(threshold.keys()))
     assert len(threshold) > 0, 'Temp_support.optimal_cut: classify failure'
     if threshold[0] <= feature_column.min():
-        threshold[0] = -math.inf
+        threshold[0] = -np.inf
     else:
-        threshold.insert(0, -math.inf)
+        threshold.insert(0, -np.inf)
     if threshold[-1] >= feature_column.max():
-        threshold[-1] = math.inf
+        threshold[-1] = np.inf
     else:
-        threshold.append(math.inf)
-    # for i, thresh in enumerate(threshold):
-    #     threshold
-    # feature_column.apply(lambda x: [])
-    return threshold
+        threshold.append(np.inf)
+    for i, thresh in enumerate(threshold[:-1]):
+        feature_column = feature_column.mask(
+            (feature_column >= threshold[i]) & 
+            (feature_column < threshold[i + 1]), 
+            threshold[i]
+        )
+    return feature_column
     
 

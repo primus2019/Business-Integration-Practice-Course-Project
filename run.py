@@ -202,7 +202,6 @@ def run():
     #   Temp_support.select_feature_iv(ds_c3_cut1, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut1, encoding='gb18030'))
     # Log.itersave(file_path=fe_c3_cut2_iv, iteritem=
     #   Temp_support.select_feature_iv(ds_c3_cut2, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut2, encoding='gb18030'))
-    printlog(Temp_support.cut(ds_c3_na, fe_c3, method='optimal', label_column=-1, encoding='gb18030'))
     # ##################### class 6 - cf #####################
     # printlog('class 6 - cf')
     # ## class 6 variables
