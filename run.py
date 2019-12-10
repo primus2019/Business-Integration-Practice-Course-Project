@@ -1,13 +1,14 @@
-from utils import EDA_massive, Preprocess, Log, EDA, Feature_selection, Model, Temp_support
+from utils import EDA_massive, Preprocess, Log, EDA, Feature_selection, Model, Temp_support, Assess
 from utils.Log import printlog
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.linear_model import Lasso
 from xgboost import XGBClassifier
 from collections import Counter
 import matplotlib.pyplot as plt
 from functools import reduce
 from sklearn import tree
+from tqdm import tqdm
 import seaborn as sns
 import pandas as pd
 import numpy as np
@@ -17,10 +18,14 @@ import winsound
 
 def run():
     ## hyperparams
+    ## feature selection
     iv_upper_thresh = 0.5
     iv_lower_thresh = 0.2
-    lasso_alpha = 1.0
-    lasso_coef_thresh = 0
+    lasso_alpha = 0.020
+    lasso_coef = 1e-04
+    ## model
+    xgb_FP_grad_mul = 1.0
+    xgb_FN_grad_mul = 1.2
     ## settings
     ds_path = 'data/data.csv'
     plt.rcParams['axes.unicode_minus'] = False
@@ -227,12 +232,21 @@ def run():
     #     ds_t = pd.read_csv(ivv, header=0, index_col=0)['iv']
     #     ds_t[ds_t.between(iv_lower_thresh, iv_upper_thresh)].to_csv(fe_iv, header=0)
     # printlog('-----------------------------------feature selection on lasso-----------------------------------')
-    # for ds_na, fe_lasso, lass in zip(classed_ds_na, classed_fe_lasso, classed_lasso):
+    # for i, (ds_na, fe_lasso, lass) in tqdm(enumerate(zip(classed_ds_na, classed_fe_lasso, classed_lasso)), desc='lasso', total=5):
+    #     # ds_t = pd.read_csv(ds_na, encoding='gb18030', header=0, index_col=0)
+    #     # cv_lasso = [np.sqrt(-cross_val_score(Lasso(alpha = alpha), ds_t.iloc[:, :-1], ds_t.iloc[:, -1], 
+    #     #     scoring="neg_mean_squared_error", cv = 5)).mean() for alpha in [0.001, 0.005, 0.01, 0.015, 0.02]]
+    #     # cv_lasso = pd.Series(cv_lasso, index = [0.001, 0.005, 0.01, 0.015, 0.02])
+    #     # cv_lasso.plot(title = "Validation")
+    #     # plt.xlabel("alpha")
+    #     # plt.ylabel("rmse")
+    #     # plt.savefig('lasso/lasso_rmse_{}.png'.format(i + 1))
+    #     # plt.close()
     #     lasso = Lasso(alpha=lasso_alpha)
     #     ds_t = pd.read_csv(ds_na, encoding='gb18030', header=0, index_col=0)
     #     lasso.fit(ds_t.iloc[:, :-1].values, ds_t.iloc[:, -1].values)
     #     pd.DataFrame(lasso.coef_, index=ds_t.columns[:-1], columns=['lasso']).to_csv(lass)
-    #     pd.read_csv(lass, header=0, index_col=0).loc[lasso.coef_>lasso_coef_thresh, :].to_csv(fe_lasso)
+    #     pd.read_csv(lass, header=0, index_col=0).loc[np.abs(lasso.coef_) > lasso_coef, :].to_csv(fe_lasso)
     # printlog('-----------------------------------feature selection on xgb-----------------------------------')
     # for ds_na, fe_xgb, xgbb in zip(classed_ds_na, classed_fe_xgb, classed_xgb):
     #     xgb_t = XGBClassifier()
@@ -349,7 +363,7 @@ def run():
     #     plt.legend()
     #     plt.savefig('misc/als_iv_cut_{}.png'.format(i + 1))
     #     plt.close()
-        
+
     #     sns.distplot(ds_t_1.loc[fe_large, :].T.values[0], kde=True, bins=20, rug=True, label='large衍生字段')
     #     table_data=[
     #         ['(0.00, 0.02]',   (int)((ds_t_1.loc[fe_large, :] <= 0.02).sum())],
@@ -438,64 +452,44 @@ def run():
     #     plt.savefig('misc/als_iv_cut_{}_cell.png'.format(i + 1))
     #     plt.close()
     
+    
+    printlog('-----------------------------------gate and tree-----------------------------------')
+    
+    printlog('-----------------------------------train on xgb-----------------------------------')
+    features = [
+        'als_m12_id_nbank_orgnum',
+        'als_m3_id_cooff_allnum',
+        'ir_id_x_cell_cnt',
+        'cons_m12_MYYP_visits',
+        'als_m6_id_rel_allnum',
+        'als_fst_id_nbank_inteday'
+    ]
+    pop_features = []
+    ds_final = 'data/merge_selected.csv'
+    ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
+    pop_t = pd.read_csv('data/pop.csv', encoding='gb18030', header=0, index_col=0)
+    pd.concat([ds_t.loc[:, pop_features], ds_t.loc[:, features], ds_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_final)
+    ds_t = pd.read_csv(ds_final, header=0, index_col=0)
+    Preprocess.fill_cat(ds_final, ds_t.columns[:-1], save_path=ds_final)
+    ds_t = pd.read_csv(ds_final, header=0, index_col=0)
+    Preprocess.fill_na(ds_final, ds_t.columns[:-1], replacement=-1, save_path=ds_final)
+    ds_t = pd.read_csv(ds_final, header=0, index_col=0)
+    def objective(y_true, y_pred):
+        multiplier = pd.Series(y_true).mask(y_true == 1, xgb_FP_grad_mul).mask(y_true == 0, xgb_FN_grad_mul)
+        grad = multiplier * (y_pred - y_true)
+        hess = np.power(np.abs(grad), 0.5)
+        return grad, hess
+    xgb_t = XGBClassifier(objective=objective)
+    # for column in ds_t.columns[:-1]:
+    #     ds_t.loc[:, column] = Temp_support.feature_woe(ds_final, column, -1)[0]
+    # ds_t.to_csv('data/merge_selected_woe.csv')
+    # ds_t = pd.read_csv('data/merge_selected_woe.csv', header=0, index_col=0)
+    train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], 
+        ds_t.iloc[:, -1], test_size=0.3, train_size=0.7, random_state=1)
+    xgb_t.fit(train_fe, train_lb)
+    prediction = xgb_t.predict_proba(test_fe)
+    Assess.xgbAssess(test_lb.to_numpy(), prediction, 'misc')
 
-    # ######################### train on xgb ###################################
-    # features = [
-    #     'cons_tot_m12_visits',
-    #     'cf_prob_max',
-    #     'als_m6_id_rel_allnum',
-    #     'als_m12_id_nbank_tot_mons',
-    #     'ir_m3_id_x_cell_cnt',
-    #     'ir_m6_id_x_name_cnt'
-    # ]
-    # pop_features = [
-
-    # ]
-    # ds_final = 'data/merge_selected.csv'
-    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pop_t = pd.read_csv('data/pop.csv', encoding='gb18030', header=0, index_col=0)
-    # pd.concat([pop_t.loc[:, pop_features], ds_t.loc[:, features], ds_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_final)
-    # ds_t = pd.read_csv(ds_final, header=0, index_col=0)
-    # Preprocess.fill_cat(ds_final, ds_t.columns[:-1], save_path=ds_final)
-    # ds_t = pd.read_csv(ds_final, header=0, index_col=0)
-    # Preprocess.fill_na(ds_final, ds_t.columns[:-1], replacement=-1, save_path=ds_final)
-    # ds_t = pd.read_csv(ds_final, header=0, index_col=0)
-    # def objective(y_true, y_pred):
-    #     FP_cost_multiplier = 1.0
-    #     FN_cost_multiplier = 1.2
-    #     multiplier = pd.Series(y_true).mask(y_true == 1, FP_cost_multiplier).mask(y_true == 0, FN_cost_multiplier)
-    #     printlog((multiplier == 1.2).sum())
-    #     grad = multiplier * (y_pred - y_true)
-    #     hess = np.power(np.abs(grad), 0.5)
-    #     return grad, hess
-    # xgb_t = XGBClassifier(objective=objective)
-    # # for column in ds_t.columns[:-1]:
-    # #     printlog(column)
-    # #     printlog(len(Temp_support.feature_woe(ds_final, column, -1)[0]))
-    # #     ds_t.loc[:, column] = Temp_support.feature_woe(ds_final, column, -1)[0]
-    # # ds_t.to_csv('data/merge_selected_woe.csv')
-
-    # # ds_t = pd.read_csv('data/merge_selected_woe.csv', header=0, index_col=0)
-    # train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], ds_t.iloc[:, -1], train_size=0.7, random_state=1)
-    # xgb_t.fit(train_fe, train_lb)
-    # prediction = xgb_t.predict_proba(test_fe).tolist()
-    # for i, pre in enumerate(prediction):
-    #     prediction[i] = pre[1]
-    # plt.scatter(prediction, test_lb, s=0.3, label='测试集表现')
-    # plt.title('XGB预测表现')
-    # plt.xlabel('XGB预测值分布')
-    # plt.ylabel('测试集标签值分布')
-    # plt.legend()
-    # plt.savefig('misc/xgb_1.png')
-    # plt.close()
-    # sns.distplot(prediction, bins=15, label='XGB预测值')
-    # sns.distplot(test_lb,    bins=15, label='测试集标签值')
-    # plt.title('XGB预测表现KDE-直方图')
-    # plt.xlabel('标签/预测值')
-    # plt.ylabel('标签/预测值分布')
-    # plt.legend()
-    # plt.savefig('misc/xgb.png')
-    # plt.close()
     # ############################ LR #########################
     # from sklearn.linear_model import LogisticRegression
     # clf = LogisticRegression()
@@ -541,91 +535,6 @@ def run():
     #     new_class_1_features.append()
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # #++++++++++++++++++++++++ data cleaning ++++++++++++++++++++++++
-# abstract special features
-    # ##################### special features(like dtype='O') #####################
-    # special_features = []
-    # for feature_class, flag in zip(classed_features, flag_list):
-    #     special_features.extend(Preprocess.special_feature(ds_smp_path, feature_class, encoding='gb18030'))
-    # Preprocess.clean_feature(ds_smp_path, special_features, save_path=ds_smp_path, encoding='gb18030')
-    # classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
-# check if outlier data are of same label
-    # ##################### outlier data #####################
-    # ## if outlier is set na, then is treated as missing data in following process
-    # for feature_class, flag in zip(classed_features, flag_list):
-    #     Preprocess.clean_outlier(ds_smp_path, feature_class, threshold=1, encoding='gb18030', save_path=ds_smp_path)
-    #     EDA.feature_EDA(ds_smp_path, feature_class[:20], encoding='gb18030')
-    #     EDA.feature_na(ds_smp_path, feature_class[:20], encoding='gb18030')
-    
-    # ##################### poor sample #####################
-    # EDA_massive.poor_sample(ds_smp_path, 9, encoding='gb18030')
-    # Preprocess.clean_poor_sample(ds_smp_path, 9, save_path=ds_smp_path, encoding='gb18030')
-    # EDA_massive.poor_sample(ds_smp_path, 9, encoding='gb18030')
-
-    # ##################### poor feature #####################
-    # EDA_massive.poor_feature(ds_smp_path, 3, encoding='gb18030')
-    # Preprocess.clean_poor_feature(ds_smp_path, 3, save_path=ds_smp_path, encoding='gb18030')
-    # EDA_massive.poor_feature(ds_smp_path, 3, encoding='gb18030')
-    # classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
-
-# to be modified
-    # ##################### dull feature #####################
-    # EDA_massive.dull_feature(ds_smp_path, 0.9, -1, encoding='gb18030')
-    # Preprocess.clean_dull_feature(ds_smp_path, 0.9, -1, save_path=ds_smp_path, encoding='gb18030')
-    # EDA_massive.dull_feature(ds_smp_path, 0.9, -1, encoding='gb18030')
-    # classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
-
-    # ##################### missing data #####################
-    # EDA.feature_EDA(ds_smp_path, flag_list, encoding='gb18030')
-    # for feature_class, flag in zip(classed_features, flag_list):
-    #     Preprocess.fill_na(ds_smp_path, feature_class, flag_feature=flag, flag_replacement=-1, save_path=ds_smp_path, encoding='gb18030')
-    #     EDA.feature_na(ds_smp_path, feature_class[:20], encoding='gb18030')
-
-# todo
-    # ##################### information value #####################
-    # Preprocess.clean_lowIV_feature(ds_smp_path, -1, encoding='gb18030')
-
-    # ##################### duplicated sample #####################
-    # protect the label column when cleaning should be noticed
-
-# done
-    # ##################### sort by user_date #####################
-    # EDA_massive.date_feature(ds_smp_path, feature='user_date', labels=labels, label_column=-1, file_path='tmp/record_user_date_count.png')
-    # Preprocess.sort(ds_smp_path, ds_smp_srt_path, 'user_date', encoding='gb18030')
-    # EDA_massive.EDA(ds_smp_srt_path, 'feature', encoding='gb18030')
-
-    # ##################### split train/test set #####################
-    # ## separate train & test datasets from sorted dataset
-    # feature_train, label_train, feature_test, label_test = Preprocess.split_train_test_set(ds_smp_srt_path, sample_datasets, train_rate=0.7, shuffle=False, encoding='gb18030')
-    # EDA_massive.EDA(sample_datasets[0], 'feature', encoding='gb18030')
-    # EDA_massive.EDA(sample_datasets[1], 'label', encoding='gb18030')
-    # EDA_massive.EDA(sample_datasets[2], 'feature', encoding='gb18030')
-    # EDA_massive.EDA(sample_datasets[3], 'label', encoding='gb18030')
-    # Preprocess.split_measure(label_train, label_test, labels)
     
 
 if __name__ == '__main__':
