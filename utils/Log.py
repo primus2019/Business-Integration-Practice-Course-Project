@@ -1,9 +1,10 @@
 import os
+import datetime
 
 
 def printlog(content, file_path='logs/default.log', linebreak=True, encoding='utf-8', creative=False, printable=True):
     if printable:
-        print(content)
+        print('{}: {}'.format(datetime.datetime.now().time(), content))
     if creative:
         if not os.path.isdir(os.path.dirname(file_path)):
             os.mkdir(os.path.dirname(file_path))
@@ -13,9 +14,9 @@ def printlog(content, file_path='logs/default.log', linebreak=True, encoding='ut
     assert os.path.isfile(file_path), 'Log.log: file {} does not exist'.format(os.path.basename(file_path))
     with open(file_path, 'a') as file:
         if linebreak:
-            file.write((str)(content) + '\n')
+            file.write('{}: {}\n'.format(datetime.datetime.now().time(), content))
         else:
-            file.write((str)(content))
+            file.write('{}: {}'.format(datetime.datetime.now().time(), content))
 
 
 def log(content, file_path='logs/default.log', linebreak=True, encoding='utf-8', creative=False, printable=False):
@@ -51,3 +52,14 @@ def itersave(file_path, iteritem, encoding='utf-8', informative=True):
         for item in iteritem:
             file.write('{}\n'.format(item))
     printlog('Log.itersave: finished.', printable=informative)
+
+
+def iterread(file_path, encoding='utf-8', informative=True):
+    printlog('Log.iterread: started.', printable=informative)
+    tmp = []
+    with open(file_path, 'r+') as file:
+        for line in file:
+            tmp.append(line.replace('\n', ''))
+    printlog('Log.iterread: finished.', printable=informative)
+    return tmp
+    

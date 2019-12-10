@@ -388,7 +388,7 @@ def fill_cat(ds, features, method='label_encoder', save_path=None, largeset=Fals
                     encoder.fit(feature_suffix)
                     # print(encoder.classes_)
                     tmp_new_ds = pd.DataFrame(encoder.transform(ds[feature].astype(np.dtype(str))), columns=tmp_new_feature, index=ds.index)
-                    ds = pd.concat([ds, tmp_new_ds], axis=1)
+                    ds = pd.concat([tmp_new_ds, ds], axis=1)
                     del ds[feature]
                     features.remove(feature)
                     if feature in ds.columns:

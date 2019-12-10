@@ -187,7 +187,7 @@ def feature_iv(ds, features, label_column, features_woe=None, encoding='utf-8', 
     
     
 def select_feature_iv(ds, features, label_column, strict_upper_bound, strict_lower_bound, 
-    to_file=None, encoding='utf-8', header=0, index_col=0, informative=True):
+to_file=None, encoding='utf-8', header=0, index_col=0, informative=True):
     printlog('Temp_support.select_feature_iv: started.', printable=informative)
     assert strict_upper_bound > strict_lower_bound, 'Temp_support.select_feature_iv: strict_upper_bound should be larger than strict_lowr_bound'
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds

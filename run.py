@@ -2,6 +2,7 @@ from utils import EDA_massive, Preprocess, Log, EDA, Feature_selection, Model, T
 from utils.Log import printlog
 
 from sklearn.model_selection import train_test_split
+from sklearn.linear_model import Lasso
 from xgboost import XGBClassifier
 from collections import Counter
 import matplotlib.pyplot as plt
@@ -10,166 +11,21 @@ from sklearn import tree
 import seaborn as sns
 import pandas as pd
 import numpy as np
+import potplayer
 import itertools
 import winsound
 
 def run():
+    ## hyperparams
+    iv_upper_thresh = 0.5
+    iv_lower_thresh = 0.2
+    lasso_alpha = 1.0
+    lasso_coef_thresh = 0
+    ## settings
     ds_path = 'data/data.csv'
-    # ds_smp_path = 'tmp/ds_smp_1.csv'
-    feature_selection_log = 'logs/feature_selection.log'
-    # ds_smp_spe_path = 'tmp/ds_smp_spe.csv'
-    # ds_smp_srt_path = 'tmp/ds_smp_srt.csv'
-    flag_list = ['flag_specialList_c', 'flag_fraudrelation_g', 'flag_inforelation', 'flag_applyloanusury', 'flag_applyloanstr', 'flag_ConsumptionFeature', 'flag_consumption_c']
-    check_feature_pattern = ['^sl_', '^frg_', '^ir_', '^alu_', '^als_', '^cf_', '^cons_']
-    sample_datasets = [
-        'tmp/ds_feature_train.csv',
-        'tmp/ds_label_train.csv',
-        'tmp/ds_feature_test.csv',
-        'tmp/ds_label_test.csv'
-    ]
-
     plt.rcParams['axes.unicode_minus'] = False
     plt.rcParams['font.family'] = 'SimHei'
     Log.clear_log(creative=True)
-    Log.clear_log(file_path=feature_selection_log, creative=True)
-    # #################### necessary for afterward debugging #####################
-    # classed_features = Preprocess.pattern_to_feature(ds_smp_path, check_feature_pattern)
-    # labels = EDA_massive.labels(ds_smp_srt_path, column=-1, encoding='gb18030')
-    # classed_preffix = [Temp_support.prefix_from_meta(fl) for fl in flag_list]
-
-
-
-
-    # #************************ preprocess ************************
-    # ##################### data cleaning #####################
-    # ## unnecessary; if data cleaning is performed, the proceeding fill_cat will not work
-    # special_features = reduce(lambda accum, fc: np.concatenate([accum, Preprocess.special_feature(ds_smp_path, fc)]), classed_features, np.array([]))
-    # Preprocess.pop_feature(ds_smp_path, special_features, save_path=ds_smp_path, pop_path=ds_smp_spe_path, encoding='gb18030')
-
-
-    # #################### feature selection #####################
-    # #################### class 1 - sl      #####################
-    # printlog('class 1 - sl')
-    # ## mut_exc_1_feature = Temp_support.feature_padding(ds_smp_path, classed_features[0], classed_preffix[0], encoding='gb18030')
-    # mut_exc_1_feature = Temp_support.feature_padding_on_hit_rate(ds_smp_path, classed_features[0], classed_preffix[0], encoding='gb18030')
-    # printlog('class 1 - original features: {}'.format(mut_exc_1_feature), printable=False)
-    # ## the class_1_gate_feature is essential for gateway classification
-    # class_1_gate_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_1_feature, -1, 0.5, encoding='gb18030')
-    # printlog('class 1 - gate feature: {}'.format(class_1_gate_feature), file_path=feature_selection_log, printable=False)
-    # tocheck_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_1_feature, -1, 0.1, encoding='gb18030')
-    # tocheck_feature = [feature for feature in tocheck_feature if feature not in class_1_gate_feature]
-    # printlog('class 1 - tocheck feature: {}'.format(tocheck_feature), file_path=feature_selection_log, printable=False)
-    # ## if the features are categorical features, put them into decision tree and derive the tree model
-    # fill_na = lambda x, f: Preprocess.fill_na(x, f, flag_feature=flag_list[0], save_path=ds_smp_path, flag_replacement=-1, encoding='gb18030')
-    # ## the class_1_tree is essential for tree classifier here
-    # if len(tocheck_feature) > 0:
-    #     class_1_tree = Model.tree_classifier(
-    #         ds=ds_smp_path, 
-    #         features=tocheck_feature, 
-    #         label_column=-1, 
-    #         fill_na=fill_na, 
-    #         encoding='gb18030', 
-    #         export_path='tmp/class_1_tree.dot'
-    #     )
-    # else:
-    #     printlog('class 1 - tocheck feature: no feature to check with tree')
-    # ##################### class 2 - fr #####################
-    # ## note that classed_features[1] is updated here for label binarizer, new ds is saved at save_path in fill_cat
-    # printlog('class 2 - fr')
-    # fill_na = lambda x, f: Preprocess.fill_na(x, f, flag_feature=flag_list[1], flag_replacement=-1, encoding='gb18030')
-    # fill_cat = lambda x, f: Preprocess.fill_cat(x, f, method='label_binarizer', save_path=ds_smp_path, encoding='gb18030')
-    # ## the class_2_tree, class_2_categorical_encoder, classed_feature[1] are essential for tree classifier here
-    # class_2_tree, class_2_categorical_encoder, classed_features[1] = Model.tree_classifier(
-    #     ds=ds_smp_path, 
-    #     features=classed_features[1], 
-    #     label_column=-1, 
-    #     fill_na=fill_na, 
-    #     fill_cat=fill_cat, 
-    #     export_path='tmp/class_2_tree.dot', 
-    #     encoding='gb18030'
-    # )
-    # ## 2-layer-tree sprouting on feature
-    # Temp_support.two_layer_tree(ds_smp_path, classed_features[1][0], 
-    #     classed_features[1][1], -1, to_file='tmp/class_2_tree_new.dot', encoding='gb18030')
-    # Temp_support.two_layer_tree(ds_smp_path, classed_features[1][1], 
-    #     classed_features[1][0], -1, to_file='tmp/class_2_tree_new_t.dot', encoding='gb18030')
-    # ##################### class 4 - alu #####################
-    # printlog('class 4 - alu')
-    # mut_exc_4_feature = classed_features[3]
-    # printlog('class 4 - original features: {}'.format(mut_exc_4_feature), printable=False)
-    # ## the class_4_gate_feature is essential for gateway classification
-    # class_4_gate_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_4_feature, -1, 0.9, encoding='gb18030')
-    # printlog('class 4 - gate feature: {}'.format(class_4_gate_feature), file_path=feature_selection_log, printable=False)
-    # tocheck_feature = Feature_selection.hit_positive_rate(ds_smp_path, mut_exc_4_feature, -1, 0.6, encoding='gb18030')
-    # tocheck_feature = [feature for feature in tocheck_feature if feature not in class_4_gate_feature]
-    # printlog('class 4 - tocheck feature: {}'.format(tocheck_feature), file_path=feature_selection_log, printable=False)
-    # ## if the features are categorical features, put them into decision tree and derive the tree model
-    # fill_na = lambda x, f: Preprocess.fill_na(x, f, flag_feature=flag_list[3], save_path=ds_smp_path, flag_replacement=-1, encoding='gb18030')
-    # ## the class_4_tree is essential for tree classifier here
-    # if len(tocheck_feature) > 0:
-    #     class_4_tree = Model.tree_classifier(
-    #         ds=ds_smp_path, 
-    #         features=tocheck_feature, 
-    #         label_column=-1, 
-    #         fill_na=fill_na, 
-    #         encoding='gb18030', 
-    #         export_path='tmp/class_4_tree.dot'
-    #     )
-    # else:
-    #     printlog('class 4 - tocheck feature: no feature to check with tree')
-    # ##################### class 5 - als #####################
-    # printlog('class 5 - als')
-    # ## class 5 variables
-    # ds_c5                 = 'tmp/ds_c5_als.csv'
-    # ds_c5_varied          = 'tmp/ds_c5_als_varied.csv'
-    # ds_c5_varied_na       = 'tmp/ds_c5_als_varied_na.csv'
-    # ds_c5_varied_cut_1 = 'tmp/ds_c5_als_varied_cut_1.csv'
-    # ds_c5_varied_cut_2 = 'tmp/ds_c5_als_varied_cut_2.csv'
-    # ds_c5_varied_cut_1_iv = 'iv/ds_c5_als_varied_iv_cut_1.csv'
-    # ds_c5_varied_cut_2_iv = 'iv/ds_c5_als_varied_iv_cut_2.csv'
-    # fe_c5_pattern   = '^als_'
-    # fe_c5_cut1_iv  = 'features/fe_c5_als_iv_1.log'
-    # fe_c5_cut2_iv  = 'features/fe_c5_als_iv_2.log'
-    # als_preffix = [
-    #     ['^als_d7_id_', '^als_d15_id_', '^als_m1_id_', '^als_m3_id_', '^als_m6_id_', '^als_m12_id_', '^als_fst_id_', '^als_lst_id_'],
-    #     ['^als_d7_cell_', '^als_d15_cell_', '^als_m1_cell_', '^als_m3_cell_', '^als_m6_cell_', '^als_m12_cell_', '^als_fst_cell_', '^als_lst_cell_']]
-    # ## class 5 ds
-    # fe_c5           = Preprocess.pattern_to_feature(ds_path, fe_c5_pattern, encoding='gb18030')[0]
-    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pd.concat([ds_t.loc[:, fe_c5], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c5, encoding='gb18030')
-    # ## start of variation
-    # printlog('class 5 - value padding: larger/smaller')
-    # ds_t = pd.read_csv(ds_c5, encoding='gb18030', header=0, index_col=0)
-    # for i, (id_fc, cell_fc) in enumerate(zip(Preprocess.pattern_to_feature(ds_t, als_preffix[0], encoding='gb18030'), Preprocess.pattern_to_feature(ds_t, als_preffix[1], encoding='gb18030'))):
-    #     for id_f, cell_f in zip(id_fc, cell_fc):
-    #         large_f = id_f.replace('id', 'large')
-    #         small_f = id_f.replace('id', 'small')
-    #         ds_t.insert(loc=ds_t.columns.get_loc(id_f), column=large_f, value=np.nan)
-    #         ds_t.insert(loc=ds_t.columns.get_loc(id_f), column=small_f, value=np.nan)
-    #         for row in ds_t[ds_t[cell_f].notna()].index:
-    #             ## change < to > for smaller value padding
-    #             ds_t.loc[row, large_f] = ds_t.loc[row, cell_f] if ds_t.loc[row, id_f] == np.nan or ds_t.loc[row, id_f] < ds_t.loc[row, cell_f] else ds_t.loc[row, id_f]
-    #             ds_t.loc[row, small_f] = ds_t.loc[row, cell_f] if ds_t.loc[row, id_f] == np.nan or ds_t.loc[row, id_f] > ds_t.loc[row, cell_f] else ds_t.loc[row, id_f]
-    # ds_t.to_csv(ds_c5_varied, encoding='gb18030')
-    # printlog('class 5 - feature padding: id/cell')
-    # pass
-    # ## start of cleaning
-    # printlog('class 5 - refreshing varied feature')
-    # fe_c5_varied = Preprocess.pattern_to_feature(ds_c5_varied, fe_c5_pattern, encoding='gb18030')[0]
-    # printlog('class 5 - fill na')
-    # Preprocess.fill_na(ds_c5_varied, fe_c5_varied, replacement=-1, save_path=ds_c5_varied_na, encoding='gb18030')
-    # printlog('class 5 - cut 1')
-    # Temp_support.cut(ds_c5_varied_na, fe_c5_varied, threshold=10, bin=10, method='equal-distance', save_path=ds_c5_varied_cut_1, encoding='gb18030')
-    # printlog('class 5 - cut 2')
-    # Temp_support.cut(ds_c5_varied_na, fe_c5_varied, threshold=5 , bin=5,  method='equal-distance', save_path=ds_c5_varied_cut_2, encoding='gb18030')
-    # printlog('class 5 - select by iv 1')
-    # fe_c5_iv_1 = Temp_support.select_feature_iv(ds_c5_varied_cut_1, fe_c5_varied, -1, 0.5, 0.3, to_file=ds_c5_varied_cut_1_iv, encoding='gb18030')
-    # printlog('class 5 - select by iv 2')
-    # fe_c5_iv_2 = Temp_support.select_feature_iv(ds_c5_varied_cut_2, fe_c5_varied, -1, 0.5, 0.3, to_file=ds_c5_varied_cut_2_iv, encoding='gb18030')
-    # printlog('class 5 - saving')
-    # Log.itersave(file_path=fe_c5_cut1_iv, iteritem=fe_c5_iv_1)
-    # Log.itersave(file_path=fe_c5_cut2_iv, iteritem=fe_c5_iv_2)
-    ##################### class 3 - ir #####################
     ''' data flow:
         ds_c[n]                 raw dataset
         ds_c[n]_na              after na data are filled
@@ -179,90 +35,177 @@ def run():
         fe_c[n]_pattern         prefix pattern for class features
         fe_c[n]                 list of class features strings
     '''
-    printlog('class 3 - ir')
+    ## class 1, 2, 4 variables
+    ds_gate         = 'tmp/ds_gate.csv'
+    ds_gate_cat     = 'tmp/ds_gate_cat.csv'
+    ds_gate_na      = 'tmp/ds_gate_na.csv'
+    fe_gate_hit     = 'features/fe_gate_hit.csv'
+    fe_gate_tree    = 'features/fe_gate_tree.csv'
+    hit_threshold   = 0.5
+    tree_threshold  = 0.3
+    fe_gate_pattern = ['^sl_', '^fr_', '^alu_']
+    fe_gate_t       = Preprocess.pattern_to_feature(ds_path, fe_gate_pattern, encoding='gb18030')
+    fe_gate         = []
+    for fe_class in fe_gate_t:
+        fe_gate.extend(fe_class)
+    plot_gate_tree  = 'tmp/gate_tree.dot'
     ## class 3 variables
-    ds_c3         = 'tmp/ds_c3.csv'
-    ds_c3_na      = 'tmp/ds_c3_na.csv'
-    ds_c3_cut1    = 'tmp/ds_c3_cut1.csv'
-    ds_c3_cut2    = 'tmp/ds_c3_cut2.csv'
-    iv_c3_cut1    = 'iv/iv_c3_cut1.csv'
-    iv_c3_cut2    = 'iv/iv_c3_cut2.csv'
-    fe_c3_cut1_iv = 'features/fe_c3_cut1_iv.log'
-    fe_c3_cut2_iv = 'features/fe_c3_cut2_iv.log'
-    fe_c3_pattern = '^ir_'
-    fe_c3         = Preprocess.pattern_to_feature(ds_path, fe_c3_pattern, encoding='gb18030')[0]
-    # ## extract class and label feture
+    ds_c3           = 'tmp/ds_c3.csv'
+    ds_c3_na        = 'tmp/ds_c3_na.csv'
+    ds_c3_cut1      = 'tmp/ds_c3_cut1.csv'
+    ds_c3_cut2      = 'tmp/ds_c3_cut2.csv'
+    iv_c3_cut1      = 'iv/iv_c3_cut1.csv'
+    iv_c3_cut2      = 'iv/iv_c3_cut2.csv'
+    fe_c3_cut1_iv   = 'features/fe_c3_cut1_iv.csv'
+    fe_c3_cut2_iv   = 'features/fe_c3_cut2_iv.csv'
+    fe_c3_pattern   = '^ir_'
+    fe_c3           = Preprocess.pattern_to_feature(ds_path, fe_c3_pattern, encoding='gb18030')[0]
+    fe_c3_lasso     = 'features/fe_c3_lasso.csv'
+    fe_c3_xgb       = 'features/fe_c3_xgb.csv'
+    lasso_c3        = 'lasso/lasso_c3.csv'
+    xgb_c3          = 'xgb/xgb_c3.csv'
+    ## class 5 variables
+    ds_c5           = 'tmp/ds_c5.csv'
+    ds_c5_varied    = 'tmp/ds_c5_varied.csv'
+    ds_c5_na        = 'tmp/ds_c5_na.csv'
+    ds_c5_cut1      = 'tmp/ds_c5_cut1.csv'
+    ds_c5_cut2      = 'tmp/ds_c5_cut2.csv'
+    iv_c5_cut1      = 'iv/iv_c5_cut1.csv'
+    iv_c5_cut2      = 'iv/iv_c5_cut2.csv'
+    fe_c5_cut1_iv   = 'features/fe_c5_cut1_iv.csv'
+    fe_c5_cut2_iv   = 'features/fe_c5_cut2_iv.csv'
+    als_preffix     = [['^als_d7_id_', '^als_d15_id_', '^als_m1_id_', '^als_m3_id_', '^als_m6_id_', '^als_m12_id_', '^als_fst_id_', '^als_lst_id_'], ['^als_d7_cell_', '^als_d15_cell_', '^als_m1_cell_', '^als_m3_cell_', '^als_m6_cell_', '^als_m12_cell_', '^als_fst_cell_', '^als_lst_cell_']]
+    fe_c5_pattern   = '^als_'
+    fe_c5           = Preprocess.pattern_to_feature(ds_path, fe_c5_pattern, encoding='gb18030')[0]
+    fe_c5_lasso     = 'features/fe_c5_lasso.csv'
+    fe_c5_xgb       = 'features/fe_c5_xgb.csv'
+    lasso_c5        = 'lasso/lasso_c5.csv'
+    xgb_c5          = 'xgb/xgb_c5.csv'
+    ## class 6 variables
+    ds_c6           = 'tmp/ds_c6.csv'
+    ds_c6_na        = 'tmp/ds_c6_na.csv'
+    ds_c6_cut1      = 'tmp/ds_c6_cut1.csv'
+    ds_c6_cut2      = 'tmp/ds_c6_cut2.csv'
+    iv_c6_cut1      = 'iv/iv_c6_cut1.csv'
+    iv_c6_cut2      = 'iv/iv_c6_cut2.csv'
+    fe_c6_cut1_iv   = 'features/fe_c6_cut1_iv.csv'
+    fe_c6_cut2_iv   = 'features/fe_c6_cut2_iv.csv'
+    fe_c6_pattern   = '^cf_'
+    fe_c6           = Preprocess.pattern_to_feature(ds_path, fe_c6_pattern, encoding='gb18030')[0]
+    fe_c6_lasso     = 'features/fe_c6_lasso.csv'
+    fe_c6_xgb       = 'features/fe_c6_xgb.csv'
+    lasso_c6        = 'lasso/lasso_c6.csv'
+    xgb_c6          = 'xgb/xgb_c6.csv'
+    ## class 7 variables
+    ds_c7           = 'tmp/ds_c7.csv'
+    ds_c7_cat       = 'tmp/ds_c7_cat.csv'
+    ds_c7_na        = 'tmp/ds_c7_na.csv'
+    ds_c7_cut1      = 'tmp/ds_c7_cut1.csv'
+    ds_c7_cut2      = 'tmp/ds_c7_cut2.csv'
+    iv_c7_cut1      = 'iv/iv_c7_cut1.csv'
+    iv_c7_cut2      = 'iv/iv_c7_cut2.csv'
+    fe_c7_cut1_iv   = 'features/fe_c7_cut1_iv.csv'
+    fe_c7_cut2_iv   = 'features/fe_c7_cut2_iv.csv'
+    fe_c7_pattern   = '^cons_'
+    fe_c7           = Preprocess.pattern_to_feature(ds_path, fe_c7_pattern, encoding='gb18030')[0]
+    fe_c7_lasso     = 'features/fe_c7_lasso.csv'
+    fe_c7_xgb       = 'features/fe_c7_xgb.csv'
+    lasso_c7        = 'lasso/lasso_c7.csv'
+    xgb_c7          = 'xgb/xgb_c7.csv'
+    ## class 8 variables
+    ds_c8           = 'data/pop.csv'
+    ds_c8_na        = 'tmp/ds_c8_na.csv'
+    ds_c8_cut1      = 'tmp/ds_c8_cut1.csv'
+    ds_c8_cut2      = 'tmp/ds_c8_cut2.csv'
+    iv_c8_cut1      = 'iv/iv_c8_cut1.csv'
+    iv_c8_cut2      = 'iv/iv_c8_cut2.csv'
+    fe_c8_cut1_iv   = 'features/fe_c8_cut1_iv.csv'
+    fe_c8_cut2_iv   = 'features/fe_c8_cut2_iv.csv'
+    fe_c8_pattern   = '^pd_'
+    fe_c8           = Preprocess.pattern_to_feature(ds_c8, fe_c8_pattern, encoding='gb18030')[0] 
+    fe_c8_lasso     = 'features/fe_c8_lasso.csv'
+    fe_c8_xgb       = 'features/fe_c8_xgb.csv'
+    lasso_c8        = 'lasso/lasso_c8.csv'
+    xgb_c8          = 'xgb/xgb_c8.csv'
+    ## classed variables
+    classed_ds_na   = [ds_c3_na, ds_c5_na, ds_c6_na, ds_c7_na, ds_c8_na]
+    classed_ds_cut1 = [ds_c3_cut1, ds_c5_cut1, ds_c6_cut1, ds_c7_cut1, ds_c8_cut1]
+    classed_fe_iv   = [fe_c3_cut1_iv, fe_c5_cut1_iv, fe_c6_cut1_iv, fe_c7_cut1_iv, fe_c8_cut1_iv]
+    classed_fe_lasso= [fe_c3_lasso, fe_c5_lasso, fe_c6_lasso, fe_c7_lasso, fe_c8_lasso]
+    classed_fe_xgb  = [fe_c3_xgb, fe_c5_xgb, fe_c6_xgb, fe_c7_xgb, fe_c8_xgb]
+    classed_lasso   = [lasso_c3, lasso_c5, lasso_c6, lasso_c7, lasso_c8]
+    classed_xgb     = [xgb_c3, xgb_c5, xgb_c6, xgb_c7, xgb_c8]
+    classed_iv      = [iv_c3_cut1, iv_c5_cut1, iv_c6_cut1, iv_c7_cut1, iv_c8_cut1]
+
+
+    # printlog('-----------------------------------feature preprocess-----------------------------------')
+    # printlog('-----------------------------------class 1, 2, 4 - sl, fr, alu-----------------------------------')
+    # ## extract class and label feature
+    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
+    # pd.concat([ds_t.loc[:, fe_gate], ds_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_gate, encoding='gb18030')
+    # ## gate feature
+    # fe_gate_t = Feature_selection.hit_positive_rate(ds_gate, fe_gate, -1, 0.5, encoding='gb18030')
+    # fe_gate_t1 = Feature_selection.hit_positive_rate(ds_gate, fe_gate, -1, 0.2, encoding='gb18030')
+    # Log.itersave(fe_gate_hit, fe_gate_t)
+    # Log.itersave(fe_gate_tree, [fe for fe in fe_gate_t1 if fe not in fe_gate_t])
+    # ## tree model
+    # fill_na = lambda x, f: Preprocess.fill_na(x, f, replacement=-1, save_path=ds_gate_na, encoding='gb18030')
+    # fill_cat = lambda x, f: Preprocess.fill_cat(x, f, method='label_binarizer', save_path=ds_gate_cat, encoding='gb18030')
+    # tcl, _, fe_gate_t = Model.tree_classifier(
+    #     ds=ds_gate, 
+    #     features=Log.iterread(fe_gate_tree), 
+    #     label_column=-1, 
+    #     fill_na=fill_na, 
+    #     fill_cat=fill_cat, 
+    #     encoding='gb18030', 
+    #     export_path=plot_gate_tree
+    # )
+    # Log.itersave(fe_gate_tree, fe_gate_t)
+    # printlog('-----------------------------------class 5 - als-----------------------------------')
+    # ## extract class and label feature
+    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
+    # pd.concat([ds_t.loc[:, fe_c5], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c5, encoding='gb18030')
+    # ## start of variation
+    # printlog('class 5 - value padding: larger/smaller')
+    # ds_t = pd.read_csv(ds_c5, encoding='gb18030', header=0, index_col=0)
+    # for i, (id_fc, cell_fc) in enumerate(zip(Preprocess.pattern_to_feature(ds_t, als_preffix[0], encoding='gb18030'), Preprocess.pattern_to_feature(ds_t, als_preffix[1], encoding='gb18030'))):
+    #     for id_f, cell_f in zip(id_fc, cell_fc):
+    #         ds_t.insert(loc=ds_t.columns.get_loc(id_f), column=id_f.replace('id', 'large'), value=ds_t[[id_f, cell_f]].apply(np.max, axis=1))
+    #         ds_t.insert(loc=ds_t.columns.get_loc(id_f), column=id_f.replace('id', 'small'), value=ds_t[[id_f, cell_f]].apply(np.min, axis=1))
+    #     printlog('class 5 - value padding finished {} and {}'.format(als_preffix[0][i], als_preffix[1][i]))
+    # ds_t.to_csv(ds_c5_varied, encoding='gb18030')
+    # ## start of fill na, cut
+    # printlog('class 5 - refreshing varied feature')
+    # fe_c5_t = Preprocess.pattern_to_feature(ds_c5_varied, fe_c5_pattern, encoding='gb18030')[0]
+    # Preprocess.fill_na(ds_c5_varied, fe_c5_t, replacement=-1, save_path=ds_c5_na, encoding='gb18030')
+    # Temp_support.cut(ds_c5_na, fe_c5_t, threshold=10, bin=10, method='equal-distance', save_path=ds_c5_cut1, encoding='gb18030')
+    # Temp_support.cut(ds_c5_na, fe_c5_t, threshold=5 , bin=5,  method='equal-distance', save_path=ds_c5_cut2, encoding='gb18030')
+    # printlog('-----------------------------------class 3 - ir-----------------------------------')
+    # ## extract class and label feature
     # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
     # pd.concat([ds_t.loc[:, fe_c3], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c3, encoding='gb18030')
-    # ## start of selection
+    # ## start of fill na, cut
     # Preprocess.fill_na(ds_c3, fe_c3, replacement=-1, save_path=ds_c3_na, encoding='gb18030')
     # Temp_support.cut(ds_c3_na, fe_c3, threshold=5, bin=5,   save_path=ds_c3_cut1, encoding='gb18030')
     # Temp_support.cut(ds_c3_na, fe_c3, threshold=10, bin=10, save_path=ds_c3_cut2, encoding='gb18030')
-    # Log.itersave(file_path=fe_c3_cut1_iv, iteritem=
-    #   Temp_support.select_feature_iv(ds_c3_cut1, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut1, encoding='gb18030'))
-    # Log.itersave(file_path=fe_c3_cut2_iv, iteritem=
-    #   Temp_support.select_feature_iv(ds_c3_cut2, fe_c3, -1, 0.5, 0.3, to_file=iv_c3_cut2, encoding='gb18030'))
-    # ##################### class 6 - cf #####################
-    # printlog('class 6 - cf')
-    # ## class 6 variables
-    # ds_c6          = 'tmp/ds_c6.csv'
-    # ds_c6_na       = 'tmp/ds_c6_na.csv'
-    # ds_c6_cut1     = 'tmp/ds_c6_cut1.csv'
-    # ds_c6_cut2     = 'tmp/ds_c6_cut2.csv'
-    # iv_c6_cut1     = 'iv/iv_c6_cut1.csv'
-    # iv_c6_cut2     = 'iv/iv_c6_cut2.csv'
-    # fe_c6_cut1_iv  = 'features/fe_c6_cut1_iv.log'
-    # fe_c6_cut2_iv  = 'features/fe_c6_cut2_iv.log'
-    # fe_c6_pattern  = '^cf_'
-    # fe_c6       = Preprocess.pattern_to_feature(ds_path, fe_c6_pattern, encoding='gb18030')[0]
+    # printlog('-----------------------------------class 6 - cf-----------------------------------')
     # ## extract class and label features
     # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
     # pd.concat([ds_t.loc[:, fe_c6], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c6, encoding='gb18030')
-    # ## start of selection
+    # ## start of fill na, cut
     # Preprocess.fill_na(ds_c6, fe_c6, replacement=-1, save_path=ds_c6_na, encoding='gb18030')
     # Temp_support.cut(ds_c6_na, fe_c6, threshold=5, bin=5,   save_path=ds_c6_cut1, encoding='gb18030')
     # Temp_support.cut(ds_c6_na, fe_c6, threshold=10, bin=10, save_path=ds_c6_cut2, encoding='gb18030')
-    # Log.itersave(file_path=fe_c6_cut1_iv, iteritem=Temp_support.select_feature_iv(ds_c6_cut1, fe_c6, -1, 0.5, 0.3, to_file=iv_c6_cut1, encoding='gb18030'))
-    # Log.itersave(file_path=fe_c6_cut2_iv, iteritem=Temp_support.select_feature_iv(ds_c6_cut2, fe_c6, -1, 0.5, 0.3, to_file=iv_c6_cut2, encoding='gb18030'))
-    # ##################### class 7 - cons #####################
-    # printlog('class 7 - cons')
-    # ## class 7 variables
-    # ds_c7          = 'tmp/ds_c7.csv'
-    # ds_c7_cat      = 'tmp/ds_c7_cat.csv'
-    # ds_c7_na       = 'tmp/ds_c7_na.csv'
-    # ds_c7_cut1     = 'tmp/ds_c7_cut1.csv'
-    # ds_c7_cut2     = 'tmp/ds_c7_cut2.csv'
-    # iv_c7_cut1     = 'iv/iv_c7_cut1.csv'
-    # iv_c7_cut2     = 'iv/iv_c7_cut2.csv'
-    # fe_c7_cut1_iv  = 'features/fe_c7_cut1_iv.log'
-    # fe_c7_cut2_iv  = 'features/fe_c7_cut2_iv.log'
-    # fe_c7_pattern  = '^cons_'
-    # fe_c7          = Preprocess.pattern_to_feature(ds_path, fe_c7_pattern, encoding='gb18030')[0]
+    # printlog('-----------------------------------class 7 - cons-----------------------------------')
     # ## extract class and flag features
     # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
     # pd.concat([ds_t.loc[:, fe_c7], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c7, encoding='gb18030')
-    # ## start of selection
+    # ## start of fill na, cut
     # Preprocess.fill_cat(ds_c7, fe_c7, save_path=ds_c7_cat, encoding='gb18030')
     # Preprocess.fill_na(ds_c7_cat, fe_c7, replacement=-1, save_path=ds_c7_na, encoding='gb18030')
     # Temp_support.cut(ds_c7_na, fe_c7, threshold=5, bin=5,   save_path=ds_c7_cut1, encoding='gb18030')
     # Temp_support.cut(ds_c7_na, fe_c7, threshold=10, bin=10, save_path=ds_c7_cut2, encoding='gb18030')
-    # Log.itersave(file_path=fe_c7_cut1_iv, iteritem=
-    #     Temp_support.select_feature_iv(ds_c7_cut1, fe_c7, -1, 0.5, 0.3, to_file=iv_c7_cut1, encoding='gb18030'))
-    # Log.itersave(file_path=fe_c7_cut2_iv, iteritem=
-    #     Temp_support.select_feature_iv(ds_c7_cut2, fe_c7, -1, 0.5, 0.3, to_file=iv_c7_cut2, encoding='gb18030'))
-    # ##################### class 8 - pop #####################
-    # printlog('class 8 - pop')
-    # ## class 8 variables
-    # ds_c8          = 'data/pop.csv'
-    # ds_c8_na       = 'tmp/ds_c8_na.csv'
-    # ds_c8_cut1     = 'tmp/ds_c8_cut1.csv'
-    # ds_c8_cut2     = 'tmp/ds_c8_cut2.csv'
-    # iv_c8_cut1     = 'iv/iv_c8_cut1.csv'
-    # iv_c8_cut2     = 'iv/iv_c8_cut2.csv'
-    # fe_c8_cut1_iv  = 'features/fe_c8_cut1_iv.log'
-    # fe_c8_cut2_iv  = 'features/fe_c8_cut2_iv.log'
-    # fe_c8_pattern  = '^pd_'
-    # fe_c8          = Preprocess.pattern_to_feature(ds_c8, fe_c8_pattern, encoding='gb18030')[0]
+    # printlog('-----------------------------------class 8 - pop-----------------------------------')
     # ## extract class and flag features
     # ds_t = pd.read_csv(ds_c8, encoding='gb18030', header=0, index_col=0)
     # ds_origin_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
@@ -271,36 +214,32 @@ def run():
     # Preprocess.fill_na(ds_c8, fe_c8, replacement=-1, save_path=ds_c8_na, encoding='gb18030')
     # Temp_support.cut(ds_c8_na, fe_c8, threshold=5, bin=5,   method='equal-frequency', save_path=ds_c8_cut1, encoding='gb18030')
     # Temp_support.cut(ds_c8_na, fe_c8, threshold=10, bin=10, method='equal-frequency', save_path=ds_c8_cut2, encoding='gb18030')
-    # Log.itersave(file_path=fe_c8_cut1_iv, iteritem=
-    #     Temp_support.select_feature_iv(ds_c8_cut1, fe_c8, -1, 0.5, 0.3, to_file=iv_c8_cut1, encoding='gb18030'))
-    # Log.itersave(file_path=fe_c8_cut2_iv, iteritem=
-    #     Temp_support.select_feature_iv(ds_c8_cut2, fe_c8, -1, 0.5, 0.3, to_file=iv_c8_cut2, encoding='gb18030'))
-    # ####################### feature selection on xgb #######################
-    # printlog('feature selection on xgb')
-    # classed_ds_na = [
-    #     'tmp/ds_c3_ir_na.csv', 'tmp/ds_c5_als_varied_na.csv', 'tmp/ds_c6_ir_na.csv',
-    #     'tmp/ds_c7_ir_na.csv', 'tmp/ds_c8_ir_na.csv'
-    # ]
-    # classed_ds_xgb = [
-    #     'xgb/ds_c3_na_xgb.csv', 'xgb/ds_c5_na_xgb.csv', 'xgb/ds_c6_na_xgb.csv',
-    #     'xgb/ds_c7_na_xgb.csv', 'xgb/ds_c8_na_xgb.csv'
-    # ]
-    # classed_ds_feature = [
-    #     'features/fe_c3_na_xgb.csv', 'features/fe_c5_na_xgb.csv', 'features/fe_c6_na_xgb.csv',
-    #     'features/fe_c7_na_xgb.csv', 'features/fe_c8_na_xgb.csv'
-    # ]
-    # for ds_na, ds_xgb, ds_feature in zip(classed_ds_na, classed_ds_xgb, classed_ds_feature):
+
+
+    ## necessary as new features in ds_c5_varied
+    fe_c5_t = Preprocess.pattern_to_feature(ds_c5_varied, fe_c5_pattern, encoding='gb18030')[0]
+
+
+    # printlog('-----------------------------------feature selection on IV-----------------------------------')
+    # for ds_cut1, fe_iv, ivv in zip(classed_ds_cut1, classed_fe_iv, classed_iv):
+    #     Temp_support.select_feature_iv(ds_cut1, pd.read_csv(ds_cut1, header=0, index_col=0).columns[:-1], -1, 
+    #         iv_upper_thresh, iv_lower_thresh, to_file=ivv, encoding='gb18030')
+    #     ds_t = pd.read_csv(ivv, header=0, index_col=0)['iv']
+    #     ds_t[ds_t.between(iv_lower_thresh, iv_upper_thresh)].to_csv(fe_iv, header=0)
+    # printlog('-----------------------------------feature selection on lasso-----------------------------------')
+    # for ds_na, fe_lasso, lass in zip(classed_ds_na, classed_fe_lasso, classed_lasso):
+    #     lasso = Lasso(alpha=lasso_alpha)
+    #     ds_t = pd.read_csv(ds_na, encoding='gb18030', header=0, index_col=0)
+    #     lasso.fit(ds_t.iloc[:, :-1].values, ds_t.iloc[:, -1].values)
+    #     pd.DataFrame(lasso.coef_, index=ds_t.columns[:-1], columns=['lasso']).to_csv(lass)
+    #     pd.read_csv(lass, header=0, index_col=0).loc[lasso.coef_>lasso_coef_thresh, :].to_csv(fe_lasso)
+    # printlog('-----------------------------------feature selection on xgb-----------------------------------')
+    # for ds_na, fe_xgb, xgbb in zip(classed_ds_na, classed_fe_xgb, classed_xgb):
     #     xgb_t = XGBClassifier()
     #     ds_t = pd.read_csv(ds_na, encoding='gb18030', header=0, index_col=0)
     #     xgb_t.fit(ds_t.iloc[:, :-1].values, ds_t.iloc[:, -1].values)
-    #     pd.DataFrame(xgb_t.feature_importances_, index=ds_t.columns[:-1], columns=['xgb']).to_csv(ds_xgb)
-    #     top_indexing = xgb_t.feature_importances_.argsort()[-30:]
-    #     pd.read_csv(ds_xgb, header=0, index_col=0).iloc[top_indexing, :].to_csv(ds_feature)
-    # top_features = []
-    # for ds_feature in classed_ds_feature:
-    #     top_features.append(pd.read_csv(ds_feature, header=0, index_col=0))
-    # top_features = pd.concat(top_features, axis=0)
-    # top_features.iloc[top_features.loc[:, 'xgb'].values.argsort()[-30:], :].to_csv('features/top_features_xgb.csv')
+    #     pd.DataFrame(xgb_t.feature_importances_, index=ds_t.columns[:-1], columns=['xgb']).to_csv(xgbb)
+    #     pd.read_csv(xgbb, header=0, index_col=0).iloc[xgb_t.feature_importances_.argsort()[-30:], :].to_csv(fe_xgb)
 
     # ################### extract top 30 features by iv from every cutting and subclasses ###################
     # printlog('feature selection on IV')
@@ -500,7 +439,7 @@ def run():
     #     plt.close()
     
 
-    # ######################### train on Logistic ###################################
+    # ######################### train on xgb ###################################
     # features = [
     #     'cons_tot_m12_visits',
     #     'cf_prob_max',
@@ -512,16 +451,24 @@ def run():
     # pop_features = [
 
     # ]
-    # ds_final = 'data/merge_selected'
+    # ds_final = 'data/merge_selected.csv'
     # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
     # pop_t = pd.read_csv('data/pop.csv', encoding='gb18030', header=0, index_col=0)
-    # pd.concat([pop_t.loc[:, pop_features], ds_t.loc[:, features], ds_t.iloc[:, -1]], axis=1).to_csv(ds_final)
+    # pd.concat([pop_t.loc[:, pop_features], ds_t.loc[:, features], ds_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_final)
     # ds_t = pd.read_csv(ds_final, header=0, index_col=0)
     # Preprocess.fill_cat(ds_final, ds_t.columns[:-1], save_path=ds_final)
     # ds_t = pd.read_csv(ds_final, header=0, index_col=0)
     # Preprocess.fill_na(ds_final, ds_t.columns[:-1], replacement=-1, save_path=ds_final)
     # ds_t = pd.read_csv(ds_final, header=0, index_col=0)
-    # xgb_t = XGBClassifier()
+    # def objective(y_true, y_pred):
+    #     FP_cost_multiplier = 1.0
+    #     FN_cost_multiplier = 1.2
+    #     multiplier = pd.Series(y_true).mask(y_true == 1, FP_cost_multiplier).mask(y_true == 0, FN_cost_multiplier)
+    #     printlog((multiplier == 1.2).sum())
+    #     grad = multiplier * (y_pred - y_true)
+    #     hess = np.power(np.abs(grad), 0.5)
+    #     return grad, hess
+    # xgb_t = XGBClassifier(objective=objective)
     # # for column in ds_t.columns[:-1]:
     # #     printlog(column)
     # #     printlog(len(Temp_support.feature_woe(ds_final, column, -1)[0]))
@@ -529,26 +476,26 @@ def run():
     # # ds_t.to_csv('data/merge_selected_woe.csv')
 
     # # ds_t = pd.read_csv('data/merge_selected_woe.csv', header=0, index_col=0)
-    # # xgb_t.fit(train_fe, train_lb)
-    # # prediction = xgb_t.predict_proba(test_fe).tolist()
     # train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], ds_t.iloc[:, -1], train_size=0.7, random_state=1)
-    # # for i, pre in enumerate(prediction):
-    # #     prediction[i] = pre[1]
-    # # plt.scatter(prediction, test_lb, s=0.3, label='测试集表现')
-    # # plt.title('XGB预测表现')
-    # # plt.xlabel('XGB预测值分布')
-    # # plt.ylabel('测试集标签值分布')
-    # # plt.legend()
-    # # plt.savefig('misc/xgb_1.png')
-    # # plt.close()
-    # # sns.distplot(prediction, bins=15, label='XGB预测值')
-    # # sns.distplot(test_lb,    bins=15, label='测试集标签值')
-    # # plt.title('XGB预测表现KDE-直方图')
-    # # plt.xlabel('标签/预测值')
-    # # plt.ylabel('标签/预测值分布')
-    # # plt.legend()
-    # # plt.savefig('misc/xgb.png')
-    # # plt.close()
+    # xgb_t.fit(train_fe, train_lb)
+    # prediction = xgb_t.predict_proba(test_fe).tolist()
+    # for i, pre in enumerate(prediction):
+    #     prediction[i] = pre[1]
+    # plt.scatter(prediction, test_lb, s=0.3, label='测试集表现')
+    # plt.title('XGB预测表现')
+    # plt.xlabel('XGB预测值分布')
+    # plt.ylabel('测试集标签值分布')
+    # plt.legend()
+    # plt.savefig('misc/xgb_1.png')
+    # plt.close()
+    # sns.distplot(prediction, bins=15, label='XGB预测值')
+    # sns.distplot(test_lb,    bins=15, label='测试集标签值')
+    # plt.title('XGB预测表现KDE-直方图')
+    # plt.xlabel('标签/预测值')
+    # plt.ylabel('标签/预测值分布')
+    # plt.legend()
+    # plt.savefig('misc/xgb.png')
+    # plt.close()
     # ############################ LR #########################
     # from sklearn.linear_model import LogisticRegression
     # clf = LogisticRegression()
@@ -683,4 +630,4 @@ def run():
 
 if __name__ == '__main__':
     run()
-    winsound.Beep(600,1000)
+    potplayer.run('jinitaimei.m4a')
