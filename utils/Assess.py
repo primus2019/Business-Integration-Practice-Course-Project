@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scikitplot as skplt
 import seaborn as sns
+from sklearn.model_selection import cross_val_score
 import os
 
 
@@ -39,3 +40,8 @@ def xgbAssess(y_true, y_pred, save_folder):
 
     KSplot(y_true, y_pred, os.path.join(save_folder, 'xgb_ks.png'), 'XGB预测表现 - KS图')
     ROCplot(y_true, y_pred, os.path.join(save_folder, 'xgb_roc.png'), 'XGB预测表现 - ROC图')
+
+
+def estimatorAssess(estimator, X, y, scoring, cv):
+    cross_val_score(estimator, X, y, scoring=scoring, cv=cv)
+    

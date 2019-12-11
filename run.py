@@ -1,6 +1,7 @@
 from utils import EDA_massive, Preprocess, Log, EDA, Feature_selection, Model, Temp_support, Assess
 from utils.Log import printlog
 
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, AdaBoostClassifier, GradientBoostingClassifier
 from sklearn.model_selection import train_test_split, cross_val_score
 from sklearn.linear_model import Lasso
 from xgboost import XGBClassifier
@@ -18,6 +19,7 @@ import itertools
 import winsound
 
 def run():
+    printlog('-----------------------------------start presetting-----------------------------------')
     ## hyperparams
     ## feature selection
     hit_pos_rate_upper = 0.5
@@ -28,8 +30,9 @@ def run():
     lasso_alpha = 1.0
     lasso_coef = 1e-04
     ## model
-    xgb_FP_grad_mul = 1.0
+    xgb_FP_grad_mul = 0.3
     xgb_FN_grad_mul = 1.2
+    xgb_zero_proba_cutoff = 0.5
     ## settings
     ds_path = 'data/data.csv'
     plt.rcParams['axes.unicode_minus'] = False
@@ -139,6 +142,10 @@ def run():
     xgb_c8          = 'xgb/xgb_c8.csv'
     ## experience variables
     ds_exp_na       = 'tmp/ds_exp_na.csv'
+    ## model dataset
+    ds_model         = 'tmp/ds_model.csv'
+    ds_model_cat     = 'tmp/ds_model_cat.csv'
+    ds_model_na      = 'tmp/ds_model_na.csv'
     ## classed variables
     classed_ds_na   = [ds_c3_na, ds_c5_na, ds_c6_na, ds_c7_na, ds_c8_na]
     classed_ds_cut1 = [ds_c3_cut1, ds_c5_cut1, ds_c6_cut1, ds_c7_cut1, ds_c8_cut1]
@@ -225,8 +232,8 @@ def run():
     # Temp_support.cut(ds_c8_na, fe_c8, method='equal-frequency', threshold=5, bin=5, save_path=ds_c8_cut1, encoding='gb18030')
 
 
-    ## necessary as new features in ds_c5_varied
-    fe_c5_t = Preprocess.pattern_to_feature(ds_c5_varied, fe_c5_pattern, encoding='gb18030')[0]
+    # ## necessary as new features in ds_c5_varied
+    # fe_c5_t = Preprocess.pattern_to_feature(ds_c5_varied, fe_c5_pattern, encoding='gb18030')[0]
 
 
     # printlog('-----------------------------------feature selection on IV-----------------------------------')
@@ -486,22 +493,19 @@ def run():
     hitrate_features = Log.iterread(fe_gate_hit)
     tree_features    = Log.iterread(fe_gate_tree)
     xgb_features     = [
-        'als_m12_id_nbank_orgnum', 'als_m3_id_cooff_allnum',
-        'ir_id_x_cell_cnt', 'cons_tot_m12_visits',
-        'als_m6_id_rel_allnum', 'als_fst_id_nbank_inteday']
+            'als_m12_id_nbank_orgnum', 'als_m3_id_cooff_allnum',
+            'ir_id_x_cell_cnt', 'cons_tot_m12_visits',
+            'als_m6_id_rel_allnum', 'als_fst_id_nbank_inteday']
     pop_features     = []
     exp_features     = ['cons_tot_m12_visits', 'pd_gender_age']
-    ds_model         = 'tmp/ds_model.csv'
-    ds_model_cat     = 'tmp/ds_model_cat.csv'
-    ds_model_na      = 'tmp/ds_model_na.csv'
     ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
     pop_t = pd.read_csv(ds_c8, encoding='gb18030', header=0, index_col=0)
     ds_exp_t = pd.read_csv(ds_exp_na, encoding='gb18030', header=0, index_col=0)
     pd.concat([ds_exp_t.loc[:, exp_features], ds_t.loc[:, hitrate_features+tree_features+xgb_features], pop_t.loc[:, pop_features], ds_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_model)
-    Preprocess.fill_na(ds_model, hitrate_features+tree_features+xgb_features+pop_features, replacement=-1, save_path=ds_model_na, encoding='gb18030')
-    Preprocess.fill_cat(ds_model_na, hitrate_features+tree_features+xgb_features+pop_features, save_path=ds_model_cat, encoding='gb18030')
+    Preprocess.fill_na(ds_model, exp_features+hitrate_features+tree_features+xgb_features+pop_features, replacement=-1, save_path=ds_model_na, encoding='gb18030')
+    Preprocess.fill_cat(ds_model_na, exp_features+hitrate_features+tree_features+xgb_features+pop_features, save_path=ds_model_cat, encoding='gb18030')
     ds_t = pd.read_csv(ds_model_cat, header=0, index_col=0, encoding='gb18030')
-    train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], ds_t.iloc[:, -1], test_size=0.3, train_size=0.7, random_state=1)
+    train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], ds_t.iloc[:, -1], stratify=ds_t.iloc[:, -1], test_size=0.3, train_size=0.7, random_state=1)
     printlog('train label proportion: {}'.format(train_lb.sum() / train_lb.count()))
     printlog('test label proportion: {}'.format(test_lb.sum() / test_lb.count()))
     printlog('-----------------------------------gate and tree-----------------------------------')
@@ -511,9 +515,9 @@ def run():
     printlog('gate test: {} labelled 1 by tree classifier.'.format(pred_tree.sum()))
     printlog('-----------------------------------train on xgb-----------------------------------')
     def objective(y_true, y_pred):
-        multiplier = pd.Series(y_true).mask(y_true == 1, xgb_FP_grad_mul).mask(y_true == 0, xgb_FN_grad_mul)
+        multiplier = pd.Series(y_true).mask(y_true == 1, xgb_FN_grad_mul).mask(y_true == 0, xgb_FP_grad_mul)
         grad = multiplier * (y_pred - y_true)
-        hess = np.power(np.abs(grad), 0.5)
+        hess = multiplier * np.ones(y_pred.shape)
         return grad, hess
     xgb_t = XGBClassifier(objective=objective)
     xgb_t.fit(train_fe, train_lb)
@@ -521,8 +525,26 @@ def run():
     ## apply gate prediction to xgb prediction
     prediction[:, 1] += pred_hit + pred_tree
     prediction[prediction[:, 1] > 1, 1] = 1
-    printlog(prediction)
+    # ## apply cutoff (TO BE TESTED)
+    # prediction[prediction[:, 0] < xgb_zero_proba_cutoff, 1] = 1
+    # prediction[prediction[:, 0] < xgb_zero_proba_cutoff, 0] = 0
+    ## assess model
     Assess.xgbAssess(test_lb.to_numpy(), prediction, 'misc')
+    
+
+    
+    # cv_time=2
+    # printlog('nan: train_fe: {}, train_lb: {}'.format(train_fe.isna().sum().sum(), train_lb.isna().sum()))
+    # printlog('nan: test_fe: {}, test_lb: {}'.format(test_fe.isna().sum().sum(), test_lb.isna().sum()))
+    # printlog('-----------------------------------train on random forest-----------------------------------')
+    # printlog(-cross_val_score(RandomForestClassifier(n_estimators=100), train_fe, train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
+    # printlog('-----------------------------------train on extrar tree-----------------------------------')
+    # printlog(-cross_val_score(ExtraTreesClassifier(), train_fe, train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
+    # printlog('-----------------------------------train on adaboost-----------------------------------')
+    # printlog(-cross_val_score(AdaBoostClassifier(), train_fe, train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
+    # printlog('-----------------------------------train on gbdt-----------------------------------')
+    # printlog(-cross_val_score(GradientBoostingClassifier(), train_fe, train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
+
 
 
 
