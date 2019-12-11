@@ -466,7 +466,6 @@ def run():
     #     plt.savefig('misc/als_iv_cut_{}_cell.png'.format(i + 1))
     #     plt.close()
     
-
     # printlog('-----------------------------------experience feature-----------------------------------')
     # series_t = pd.read_csv(ds_c7_na, encoding='gb18030', header=0, index_col=0)['cons_tot_m12_visits']
     # series_t[series_t.between(-99.001, -0.001)]    = -99
@@ -488,124 +487,80 @@ def run():
     # pd.concat([pd.DataFrame(series_t, columns=['pd_gender_age']), pd.read_csv(ds_exp_na, encoding='gb18030', 
     #     header=0, index_col=0)], axis=1, sort=True).to_csv(ds_exp_na, encoding='gb18030')
 
-    
     printlog('-----------------------------------prepare dataset-----------------------------------')
     hitrate_features = Log.iterread(fe_gate_hit)
     tree_features    = Log.iterread(fe_gate_tree)
     xgb_features     = [
             'als_m12_id_nbank_orgnum', 'als_m3_id_cooff_allnum',
-            'ir_id_x_cell_cnt', 'cons_tot_m12_visits',
+            'ir_id_x_cell_cnt',
             'als_m6_id_rel_allnum', 'als_fst_id_nbank_inteday']
     pop_features     = []
     exp_features     = ['cons_tot_m12_visits', 'pd_gender_age']
     ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
     pop_t = pd.read_csv(ds_c8, encoding='gb18030', header=0, index_col=0)
     ds_exp_t = pd.read_csv(ds_exp_na, encoding='gb18030', header=0, index_col=0)
-    pd.concat([ds_exp_t.loc[:, exp_features], ds_t.loc[:, hitrate_features+tree_features+xgb_features], pop_t.loc[:, pop_features], ds_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_model)
-    Preprocess.fill_na(ds_model, exp_features+hitrate_features+tree_features+xgb_features+pop_features, replacement=-1, save_path=ds_model_na, encoding='gb18030')
-    Preprocess.fill_cat(ds_model_na, exp_features+hitrate_features+tree_features+xgb_features+pop_features, save_path=ds_model_cat, encoding='gb18030')
-    ds_t = pd.read_csv(ds_model_cat, header=0, index_col=0, encoding='gb18030')
+    pd.concat([ds_exp_t.loc[:, exp_features], ds_t.loc[:, hitrate_features+tree_features+xgb_features], 
+        pop_t.loc[:, pop_features], ds_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_model)
+    Preprocess.fill_na(ds_model, exp_features+hitrate_features+tree_features+xgb_features+pop_features, 
+        replacement=-1, save_path=ds_model_na, encoding='gb18030')
+    # Preprocess.fill_cat(ds_model_na, exp_features+hitrate_features+tree_features+xgb_features+pop_features, 
+    #     save_path=ds_model_cat, encoding='gb18030')
+    ds_t = pd.read_csv(ds_model_na, header=0, index_col=0, encoding='gb18030')
     train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], ds_t.iloc[:, -1], stratify=ds_t.iloc[:, -1], test_size=0.3, train_size=0.7, random_state=1)
     printlog('train label proportion: {}'.format(train_lb.sum() / train_lb.count()))
     printlog('test label proportion: {}'.format(test_lb.sum() / test_lb.count()))
-    printlog('-----------------------------------gate and tree-----------------------------------')
-    pred_hit     = (test_fe[hitrate_features] != -1).any(axis=1).astype(int)
-    pred_tree    = pd.Series(load(tree_gate).predict(test_fe[tree_features]), index=test_fe.index)
-    printlog('gate test: {} labelled 1 by hit positive rate.'.format(pred_hit.sum()))
-    printlog('gate test: {} labelled 1 by tree classifier.'.format(pred_tree.sum()))
-    printlog('-----------------------------------train on xgb-----------------------------------')
-    def objective(y_true, y_pred):
-        multiplier = pd.Series(y_true).mask(y_true == 1, xgb_FN_grad_mul).mask(y_true == 0, xgb_FP_grad_mul)
-        grad = multiplier * (y_pred - y_true)
-        hess = multiplier * np.ones(y_pred.shape)
-        return grad, hess
-    xgb_t = XGBClassifier(objective=objective)
-    xgb_t.fit(train_fe, train_lb)
-    prediction = xgb_t.predict_proba(test_fe)
-    ## apply gate prediction to xgb prediction
-    prediction[:, 1] += pred_hit + pred_tree
-    prediction[prediction[:, 1] > 1, 1] = 1
-    # ## apply cutoff (TO BE TESTED)
-    # prediction[prediction[:, 0] < xgb_zero_proba_cutoff, 1] = 1
-    # prediction[prediction[:, 0] < xgb_zero_proba_cutoff, 0] = 0
-    ## assess model
-    Assess.xgbAssess(test_lb.to_numpy(), prediction, 'misc')
-    
-
-    
-    # cv_time=2
-    # printlog('nan: train_fe: {}, train_lb: {}'.format(train_fe.isna().sum().sum(), train_lb.isna().sum()))
-    # printlog('nan: test_fe: {}, test_lb: {}'.format(test_fe.isna().sum().sum(), test_lb.isna().sum()))
-    # printlog('-----------------------------------train on random forest-----------------------------------')
-    # printlog(-cross_val_score(RandomForestClassifier(n_estimators=100), train_fe, train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
-    # printlog('-----------------------------------train on extrar tree-----------------------------------')
-    # printlog(-cross_val_score(ExtraTreesClassifier(), train_fe, train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
-    # printlog('-----------------------------------train on adaboost-----------------------------------')
-    # printlog(-cross_val_score(AdaBoostClassifier(), train_fe, train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
-    # printlog('-----------------------------------train on gbdt-----------------------------------')
-    # printlog(-cross_val_score(GradientBoostingClassifier(), train_fe, train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    # ############################ LR #########################
-    # from sklearn.linear_model import LogisticRegression
-    # clf = LogisticRegression()
-    # clf.fit(train_fe, train_lb)
-    # prediction = clf.predict_proba(test_fe).tolist()
-    # for i, pre in enumerate(prediction):
-    #     prediction[i] = pre[1]
-    # plt.scatter(prediction, test_lb, s=0.3, label='测试集表现')
-    # plt.title('Logistic预测表现')
-    # plt.xlabel('Logistic预测值分布')
-    # plt.ylabel('测试集标签值分布')
-    # plt.legend()
-    # plt.savefig('misc/lr_1.png')
-    # plt.close()
-    # sns.distplot(prediction, bins=15, label='Logistic预测值')
-    # sns.distplot(test_lb,    bins=15, label='测试集标签值')
-    # plt.title('Logistic预测表现KDE-直方图')
-    # plt.xlabel('标签/预测值')
-    # plt.ylabel('标签/预测值分布')
-    # plt.legend()
-    # plt.savefig('misc/lr.png')
-    # plt.close()
-
-    # from sklearn.linear_model import LogisticRegression
-    # clf = LogisticRegression(random_state=0).fit(train_fe.values, train_lb.values)
-    # cnt_crt, cnt = 0, 0
-    # prediction = clf.predict(test_fe.values)
-    # for predict, truth in zip(prediction, test_lb.values):
-    #     if predict == truth:
-    #         cnt_crt += 1
-    #     cnt += 1
-    # printlog('test correction rate: {}'.format(cnt_crt / cnt))
-    
-
-
-
-
-
-    # gate_feature = ds.iloc[ds[[feature]].notna(), -1] for feature in mut_exc_feature
-    # new_class_1_features = []
-    # print(len(list(itertools.chain.from_iterable(classed_class_1_features))))
-    # for feature_class in classed_class_1_features:
-    #     new_class_1_features.append()
-
+    # printlog('-----------------------------------gate and tree-----------------------------------')
+    # pred_hit     = (test_fe[hitrate_features] != -1).any(axis=1).astype(int)
+    # pred_tree    = pd.Series(load(tree_gate).predict(test_fe[tree_features]), index=test_fe.index)
+    # printlog('gate test: {} labelled 1 by hit positive rate.'.format(pred_hit.sum()))
+    # printlog('gate test: {} labelled 1 by tree classifier.'.format(pred_tree.sum()))
+    # printlog('-----------------------------------train on xgb-----------------------------------')
+    # def objective(y_true, y_pred):
+    #     multiplier = pd.Series(y_true).mask(y_true == 1, xgb_FN_grad_mul).mask(y_true == 0, xgb_FP_grad_mul)
+    #     grad = multiplier * (y_pred - y_true)
+    #     hess = multiplier * np.ones(y_pred.shape)
+    #     return grad, hess
+    # xgb_t = XGBClassifier(objective=objective)
+    # xgb_t.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
+    # prediction = xgb_t.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
+    # ## apply gate prediction to xgb prediction
+    # prediction[:, 1] += pred_hit + pred_tree
+    # prediction[prediction[:, 1] > 1, 1] = 1
+    # # ## apply cutoff (TO BE TESTED)
+    # # prediction[prediction[:, 0] < xgb_zero_proba_cutoff, 1] = 1
+    # # prediction[prediction[:, 0] < xgb_zero_proba_cutoff, 0] = 0
+    # ## assess model
+    # Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', XGB)
+        
+    printlog('-----------------------------------train on resemble models-----------------------------------')
+    cv_time=5
+    printlog('nan features: {}'.format(train_fe.isna().sum(axis=0)))
+    printlog('nan: train_fe: {}, train_lb: {}'.format(train_fe.isna().sum().sum(), train_lb.isna().sum()))
+    printlog('nan: test_fe: {}, test_lb: {}'.format(test_fe.isna().sum().sum(), test_lb.isna().sum()))
+    printlog('-----------------------------------train on random forest-----------------------------------')
+    printlog(-cross_val_score(RandomForestClassifier(n_estimators=100), train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
+    estimator = RandomForestClassifier(n_estimators=100)
+    estimator.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
+    prediction = estimator.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
+    Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', 'RandomForest')
+    printlog('-----------------------------------train on extrar tree-----------------------------------')
+    printlog(-cross_val_score(ExtraTreesClassifier(n_estimators=100), train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
+    estimator = ExtraTreesClassifier(n_estimators=100)
+    estimator.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
+    prediction = estimator.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
+    Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', 'ExtraTree')
+    printlog('-----------------------------------train on adaboost-----------------------------------')
+    printlog(-cross_val_score(AdaBoostClassifier(), train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
+    estimator = AdaBoostClassifier(n_estimators=100)
+    estimator.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
+    prediction = estimator.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
+    Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', 'AdaBoost')
+    printlog('-----------------------------------train on gbdt-----------------------------------')
+    printlog(-cross_val_score(GradientBoostingClassifier(), train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
+    estimator = GradientBoostingClassifier(n_estimators=100)
+    estimator.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
+    prediction = estimator.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
+    Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', 'GradientBoosting')
 
     
 

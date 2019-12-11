@@ -21,27 +21,26 @@ def ROCplot(y_true, y_pred, save_path, title):
     plt.close()
 
 
-def xgbAssess(y_true, y_pred, save_folder):
+def modelAssess(y_true, y_pred, save_folder, model_name):
     plt.scatter(y_pred[:, 1].ravel(), y_true.ravel(), s=0.3, label='测试集表现')
-    plt.title('XGB预测表现 - 散点分布')
-    plt.xlabel('XGB预测值分布')
+    plt.title('{}预测表现 - 散点分布'.format(model_name))
+    plt.xlabel('{}预测值分布'.format(model_name))
     plt.ylabel('测试集标签值分布')
     plt.legend()
-    plt.savefig(os.path.join(save_folder, 'xgb_scatter.png'))
+    plt.savefig(os.path.join(save_folder, '{}_scatter.png'.format(model_name)))
     plt.close()
-    sns.distplot(y_pred[:, 1].ravel(), bins=15, label='XGB预测值')
+    sns.distplot(y_pred[:, 1].ravel(), bins=15, label='{}预测值'.format(model_name))
     sns.distplot(y_true.ravel(),       bins=15, label='测试集标签值')
-    plt.title('XGB预测表现 - KDE直方图')
+    plt.title('{}预测表现 - KDE直方图'.format(model_name))
     plt.xlabel('标签/预测值')
     plt.ylabel('标签/预测值分布')
     plt.legend()
-    plt.savefig(os.path.join(save_folder, 'xgb_bar.png'))
+    plt.savefig(os.path.join(save_folder, '{}_bar.png'.format(model_name)))
     plt.close()
 
-    KSplot(y_true, y_pred, os.path.join(save_folder, 'xgb_ks.png'), 'XGB预测表现 - KS图')
-    ROCplot(y_true, y_pred, os.path.join(save_folder, 'xgb_roc.png'), 'XGB预测表现 - ROC图')
+    KSplot(y_true, y_pred, os.path.join(save_folder, '{}_ks.png'.format(model_name)), '{}预测表现 - KS图'.format(model_name))
+    ROCplot(y_true, y_pred, os.path.join(save_folder, '{}_roc.png'.format(model_name)), '{}预测表现 - ROC图'.format(model_name))
 
 
 def estimatorAssess(estimator, X, y, scoring, cv):
     cross_val_score(estimator, X, y, scoring=scoring, cv=cv)
-    
