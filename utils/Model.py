@@ -8,7 +8,7 @@ from utils import Preprocess
 from utils.Log import printlog
 
 
-def tree_classifier(ds, features, label_column, export_path=None, 
+def tree_classifier(ds, features, label_column, max_depth=None, export_path=None, 
 fill_na=None, fill_cat=None, encoding='utf-8', header=0, 
 index_col=0, informative=True):
     printlog('Model.tree_classifier: started.', printable=informative)
@@ -22,7 +22,7 @@ index_col=0, informative=True):
     if fill_cat:
         ds, encoder, features = fill_cat(ds, features)
     # print('features after fill_cat: {}'.format(features))
-    clt = tree.DecisionTreeClassifier()
+    clt = tree.DecisionTreeClassifier(max_depth=max_depth)
     # print('ds[label_column]: {}'.format(ds.loc[:, label_column].head()))
     # print(ds.head())
     clt = clt.fit(ds.loc[:, features], ds.loc[:, label_column])
