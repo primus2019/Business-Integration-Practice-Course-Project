@@ -3,7 +3,7 @@ import numpy as np
 import random
 import re
 import sklearn.preprocessing
-
+from sklearn.model_selection import train_test_split
 
 from utils.Log import printlog
 from functools import reduce
@@ -330,8 +330,8 @@ def fill_na(ds, features, replacement=-99, flag_feature=None, flag_replacement=N
         pass
 
 
-def fill_cat(ds, features, method='label_encoder', save_path=None, largeset=False, 
-    encoding='utf-8', header=0, index_col=0, informative=True):
+def fill_cat(ds, features, method='label_encoder', save_path=None, 
+encoding='utf-8', header=0, index_col=0, informative=True):
     '''
     # Introductions: 
 
@@ -362,44 +362,45 @@ def fill_cat(ds, features, method='label_encoder', save_path=None, largeset=Fals
 
     '''
     printlog('Preprocess.fill_cat: started.', printable=informative)
-    if not largeset:
-        ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
-        features = [features] if isinstance(features, str) else features
-        encoder = []
-        if method == 'label_encoder':
-            encoder = sklearn.preprocessing.LabelEncoder()
-            for feature in features:
-                if ds[feature].dtype == np.dtype('O'):
-                    encoder.fit(list(set(np.ravel(ds[feature].astype(np.dtype('O')).values))))
-                    # encoder.classes_ = list(set(np.ravel(ds[feature].astype(np.dtype(str)).values)))
-                    # print(encoder.classes_)
-                    ds.loc[:, feature] = encoder.transform(ds[feature].astype(np.dtype(str)))
-                    # print(list(set(np.ravel(ds[feature].values))))
-                    if ds[feature].dtype == np.dtype('O'):
-                        raise Exception('still categorical')
-        elif method == 'label_binarizer':
-            assert save_path, 'Preprocess.fill_cat: method \'label_binarizer\' split categorical feature into one-hot features, therefore new ds must be saved'
-            encoder = sklearn.preprocessing.LabelBinarizer()
-            for feature in features:
-                if ds[feature].dtype == np.dtype('O'):
-                    feature_suffix = list(set(np.ravel(ds[feature].astype(str).values)))
-                    tmp_new_feature = [feature + '_' + suffix for suffix in feature_suffix]
-                    features.extend(tmp_new_feature)
-                    encoder.fit(feature_suffix)
-                    # print(encoder.classes_)
-                    tmp_new_ds = pd.DataFrame(encoder.transform(ds[feature].astype(np.dtype(str))), columns=tmp_new_feature, index=ds.index)
-                    ds = pd.concat([tmp_new_ds, ds], axis=1)
-                    del ds[feature]
-                    features.remove(feature)
-                    if feature in ds.columns:
-                        raise Exception('still categorical')
-        if save_path:
-            ds.to_csv(save_path, encoding=encoding)
-        # print(ds.loc[:, features].head())
-        printlog('Preprocess.fill_cat: finished.', printable=informative)
-        return ds, encoder, features
-    elif largeset:
-        pass
+    ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
+    features = [features] if isinstance(features, str) else features
+    if method == 'label_encoder':
+        encoder = sklearn.preprocessing.LabelEncoder()
+        # printlog(ds.dtypes[features] == np.dtype('O'))
+        # printlog(ds[features].loc[:, ds.dtypes[features] == np.dtype('O')])
+        # ds[features].loc[:, ds.dtypes[features] == np.dtype('O')].apply(lambda column: encoder.fit_transform(column.values.ravel()), axis=0)
+        ds.loc[:, features] = ds[features].mask(ds.dtypes[features] == np.dtype('O'), 
+            lambda target_df: target_df.apply(lambda column: encoder.fit_transform(column.astype(str))))
+        # for feature in features:
+        #     if ds[feature].dtype == np.dtype('O'):
+        #         encoder.fit(list(set(np.ravel(ds[feature].astype(np.dtype('O')).values))))
+        #         # encoder.classes_ = list(set(np.ravel(ds[feature].astype(np.dtype(str)).values)))
+        #         # print(encoder.classes_)
+        #         ds.loc[:, feature] = encoder.transform(ds[feature].astype(np.dtype(str)))
+        #         # print(list(set(np.ravel(ds[feature].values))))
+        #         if ds[feature].dtype == np.dtype('O'):
+        #             raise Exception('still categorical')
+    elif method == 'label_binarizer':
+        assert save_path, 'Preprocess.fill_cat: method \'label_binarizer\' split categorical feature into one-hot features, therefore new ds must be saved'
+        encoder = sklearn.preprocessing.LabelBinarizer()
+        for feature in features:
+            if ds[feature].dtype == np.dtype('O'):
+                feature_suffix = list(set(np.ravel(ds[feature].astype(str).values)))
+                tmp_new_feature = [feature + '_' + suffix for suffix in feature_suffix]
+                features.extend(tmp_new_feature)
+                encoder.fit(feature_suffix)
+                # print(encoder.classes_)
+                tmp_new_ds = pd.DataFrame(encoder.transform(ds[feature].astype(np.dtype(str))), columns=tmp_new_feature, index=ds.index)
+                ds = pd.concat([tmp_new_ds, ds], axis=1)
+                del ds[feature]
+                features.remove(feature)
+                if feature in ds.columns:
+                    raise Exception('still categorical')
+    if save_path:
+        ds.to_csv(save_path, encoding=encoding)
+    # print(ds.loc[:, features].head())
+    printlog('Preprocess.fill_cat: finished.', printable=informative)
+    return ds, encoder, features
 
 
 def pattern_to_feature(ds, patterns, encoding='utf-8', header=0, index_col=0):
@@ -599,32 +600,11 @@ def clean_dull_feature(ds, threshold, label_column, save_path=None, encoding='ut
     if save_path:
         ds.to_csv(save_path, encoding=encoding)
 
-# only for bivariate label
-def clean_lowIV_feature(ds, label_column, threshold=0.02, save_path=None, encoding='utf-8', header=0, index_col=0):
+def train_validation_test_split(ds, label_column, train_size, validation_size, test_size, shuffle, encoding='utf-8', header=0, index_col=0):
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     label_column = ds.columns[label_column] if isinstance(label_column, int) else label_column
-    ds_t = ds.loc[:, ds.columns != label_column]
-    for i in range(55, 255):
-        ct = pd.crosstab(ds_t.iloc[:, i], ds.loc[:, label_column])
-        print(ct)
-        print(pd.melt(ct))
-    # print(np.divide(ct.values, [pd.melt(ct)['value'], pd.melt(ct)['value']]))
-
-    # tl = pd.Series(map(lambda column: reduce(lambda accum, dist: accum + (dist[0] - dist[1]) / (dist[0] + dist[1]) * np.log(dist[0] / dist[1]) 
-    #     if dist[1] != 0 else (dist[1] / ds_t[ds_t[column] == dist] - dist[0]) * np.log(dist[1] / dist[0]), 
-    #     pd.crosstab(ds_t.loc[:, column], ds.loc[:, label_column]).values, 0), ds_t.columns), index=ds_t.columns)
-    # print(tl)
-
-    # tl = pd.Series(map(lambda column: reduce(lambda accum, dist: accum + (dist[0] - dist[1]) / (dist[0] + dist[1]) * np.log(dist[0] / dist[1]) 
-    #     if dist[1] != 0 else (dist[1] - dist[0]) * np.log(dist[1] / dist[0]), 
-    #     pd.crosstab(ds_t.loc[:, column], ds.loc[:, label_column]).values, 0), ds_t.columns), index=ds_t.columns)
-    # print('Apart from label_column {}, totally {}/{} features have IV > {}'.format(
-    #     label_column,
-    #     tl.size,
-    #     ds.columns.size - 1,
-    #     threshold
-    # ))
-    # ds = pd.concat([ds_t[(tl > threshold).index], ds[[label_column]]], axis=1)
-    # if save_path:
-    #     ds.to_csv(save_path, encoding=encoding)
-    
+    ds_train, ds_validation_test, lb_train, lb_validation_test = train_test_split(ds.drop(label_column), ds[label_column], 
+        stratify=ds[label_column], train_size=train_size, test_size=test_size+validation_size, random_state=1)
+    ds_validation, ds_test, lb_validation, lb_test = train_test_split(ds_validation_test, lb_validation_test, 
+        stratify=lb_validation_test, train_size=validation_size, test_size=test_size, random_state=1)
+    return ds_train, ds_validation, ds_test, lb_train, lb_validation, lb_test
