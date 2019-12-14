@@ -15,15 +15,19 @@ index_col=0, informative=True):
 
 
 def hit_positive_rate(ds, features, label_column, threshold, 
-positive=1, encoding='utf-8', header=0, index_col=0, 
+positive=1, na_replacement=None, encoding='utf-8', header=0, index_col=0, 
 informative=True):
     printlog('Feature_selection.hit_positive_rate: started.', printable=informative)
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     features = [features] if isinstance(features, str) else features
     label_column = ds.columns[label_column] if isinstance(label_column, int) else label_column
     printlog('Feature_selection.hit_positive_rate: finished.', printable=informative)
-    return list(filter(lambda column: (ds.loc[ds[column].notna(), label_column] == positive).sum() / 
-        (ds[column].notna().values.sum() if ds[column].notna().values.sum() != 0 else 1) > threshold, features))
+    if na_replacement:
+        return list(filter(lambda column: (ds.loc[ds[column] != na_replacement, label_column] == positive).sum() / 
+            ((ds[column] != na_replacement).sum() if (ds[column] != na_replacement).sum() != 0 else 1) > threshold, features))
+    else:
+        return list(filter(lambda column: (ds.loc[ds[column].notna(), label_column] == positive).sum() / 
+            (ds[column].notna().values.sum() if ds[column].notna().values.sum() != 0 else 1) > threshold, features))
     
 
 def hit_rate(ds, features, threshold, encoding='utf-8', header=0, 

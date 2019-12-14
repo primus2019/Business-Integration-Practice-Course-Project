@@ -285,7 +285,7 @@ def split_measure(label_train, label_test, labels, encoding='utf-8', header=0, i
 
 
 def fill_na(ds, features, replacement=-99, flag_feature=None, flag_replacement=None, save_path=None, 
-    largeset=False, encoding='utf-8', header=0, index_col=0, informative=True):
+    encoding='utf-8', header=0, index_col=0, informative=True):
     '''
     # Params:
 
@@ -309,25 +309,23 @@ def fill_na(ds, features, replacement=-99, flag_feature=None, flag_replacement=N
 
     '''
     printlog('Preprocess.fill_na: started.', printable=informative)
-    if not largeset:
-        ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
-        features = [features] if isinstance(features, str) else features
-        for feature in features:
-            if flag_feature and flag_replacement:
-                printlog('fill na: feature: {}; \tflag_feature: {}'.format(feature, flag_feature), printable=False)
-                flag_feature = ds.columns[flag_feature] if isinstance(flag_feature, int) else flag_feature
-                ds.loc[(ds[feature].isna()) & (ds[flag_feature] == 1), feature] = flag_replacement
-                ds.loc[(ds[feature].isna()) & (ds[flag_feature] == 0), feature] = replacement
-            elif (not flag_feature) or (not flag_replacement):
-                ds.loc[(ds[feature].isna()), feature] = replacement
-            if ds[feature].isna().any():
-                raise Exception('still na')
-        if save_path:
-            ds.to_csv(save_path, encoding=encoding)
-        printlog('Preprocess.fill_na: finished.', printable=informative)
-        return ds
-    elif largeset:
-        pass
+    ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
+    features = ds.columns if features == 'all' else features
+    features = [features] if isinstance(features, str) else features
+    for feature in features:
+        if flag_feature and flag_replacement:
+            printlog('fill na: feature: {}; \tflag_feature: {}'.format(feature, flag_feature), printable=False)
+            flag_feature = ds.columns[flag_feature] if isinstance(flag_feature, int) else flag_feature
+            ds.loc[(ds[feature].isna()) & (ds[flag_feature] == 1), feature] = flag_replacement
+            ds.loc[(ds[feature].isna()) & (ds[flag_feature] == 0), feature] = replacement
+        elif (not flag_feature) or (not flag_replacement):
+            ds.loc[(ds[feature].isna()), feature] = replacement
+        if ds[feature].isna().any():
+            raise Exception('still na')
+    if save_path:
+        ds.to_csv(save_path, encoding=encoding)
+    printlog('Preprocess.fill_na: finished.', printable=informative)
+    return ds
 
 
 def fill_cat(ds, features, method='label_encoder', save_path=None, 
@@ -363,14 +361,18 @@ encoding='utf-8', header=0, index_col=0, informative=True):
     '''
     printlog('Preprocess.fill_cat: started.', printable=informative)
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
+    features = ds.columns if features == 'all' else features
     features = [features] if isinstance(features, str) else features
     if method == 'label_encoder':
         encoder = sklearn.preprocessing.LabelEncoder()
+        categorical_features = ds.loc[:, ds.dtypes[features] == np.dtype('O')].columns
+        printlog('Preprocess.fill_cat: categorical features: {}'.format(categorical_features), printable=False)
+        ds.loc[:, categorical_features] = ds[categorical_features].apply(lambda column: encoder.fit_transform(column.astype(str)))
         # printlog(ds.dtypes[features] == np.dtype('O'))
         # printlog(ds[features].loc[:, ds.dtypes[features] == np.dtype('O')])
         # ds[features].loc[:, ds.dtypes[features] == np.dtype('O')].apply(lambda column: encoder.fit_transform(column.values.ravel()), axis=0)
-        ds.loc[:, features] = ds[features].mask(ds.dtypes[features] == np.dtype('O'), 
-            lambda target_df: target_df.apply(lambda column: encoder.fit_transform(column.astype(str))))
+        # ds.loc[:, features] = ds[features].mask(ds.dtypes[features] == np.dtype('O'), 
+        #     lambda target_df: target_df.apply(lambda column: encoder.fit_transform(column.astype(str))))
         # for feature in features:
         #     if ds[feature].dtype == np.dtype('O'):
         #         encoder.fit(list(set(np.ravel(ds[feature].astype(np.dtype('O')).values))))
@@ -600,11 +602,23 @@ def clean_dull_feature(ds, threshold, label_column, save_path=None, encoding='ut
     if save_path:
         ds.to_csv(save_path, encoding=encoding)
 
-def train_validation_test_split(ds, label_column, train_size, validation_size, test_size, shuffle, encoding='utf-8', header=0, index_col=0):
+def train_validation_test_split(ds, label_column, train_size, validation_size, test_size, encoding='utf-8', header=0, index_col=0):
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
     label_column = ds.columns[label_column] if isinstance(label_column, int) else label_column
-    ds_train, ds_validation_test, lb_train, lb_validation_test = train_test_split(ds.drop(label_column), ds[label_column], 
-        stratify=ds[label_column], train_size=train_size, test_size=test_size+validation_size, random_state=1)
-    ds_validation, ds_test, lb_validation, lb_test = train_test_split(ds_validation_test, lb_validation_test, 
-        stratify=lb_validation_test, train_size=validation_size, test_size=test_size, random_state=1)
+    ds_train, ds_validation_test, lb_train, lb_validation_test = train_test_split(
+        ds.drop(columns=label_column), 
+        ds[label_column], 
+        stratify=ds[label_column], 
+        train_size=train_size, 
+        test_size=test_size+validation_size, 
+        random_state=1
+    )
+    ds_validation, ds_test, lb_validation, lb_test = train_test_split(
+        ds_validation_test, 
+        lb_validation_test, 
+        stratify=lb_validation_test, 
+        train_size=validation_size / (validation_size + test_size), 
+        test_size=test_size / (validation_size + test_size), 
+        random_state=1
+    )
     return ds_train, ds_validation, ds_test, lb_train, lb_validation, lb_test

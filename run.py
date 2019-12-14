@@ -16,7 +16,9 @@ import pandas as pd
 import numpy as np
 import potplayer
 import itertools
+import traceback
 import winsound
+import logging
 
 def run():
     printlog('-----------------------------------start presetting-----------------------------------')
@@ -28,348 +30,199 @@ def run():
     iv_upper_thresh = 0.5
     iv_lower_thresh = 0.2
     lasso_alpha = 1.0
-    lasso_coef = 1e-04
+    lasso_coef = 1e-05
     ## model
     xgb_FP_grad_mul = 0.3
     xgb_FN_grad_mul = 1.2
     xgb_zero_proba_cutoff = 0.5
     ## settings
-    ds_path = 'data/data.csv'
     plt.rcParams['axes.unicode_minus'] = False
     plt.rcParams['font.family'] = 'SimHei'
     Log.clear_log(creative=True)
-    ''' data flow:
-        ds_c[n]                 raw dataset
-        ds_c[n]_na              after na data are filled
-        ds_c[n]_cut[1/2]        after data are cut by method 1/2
-        iv_c[n]_cut[1/2]        dataset of features as rows and IVs as columns
-        fe_c[n]_cut[1/2]_iv     dataset of features as rows and IVs as columns
-        fe_c[n]_pattern         prefix pattern for class features
-        fe_c[n]                 list of class features strings
-    '''
+    ##
+    ds_path             = 'data/data.csv'               # raw dataset
+    ds_merged           = 'data/ds_merged.csv'          # raw dataset merged with population dataset
+    ds_na               = 'tmp/ds_na.csv'               # merged dataset clear of na data
+    ds_cat              = 'tmp/ds_cat.csv'              # merged dataset clear of categorical feature
+    ds_cut              = 'tmp/ds_cut.csv'              # merged dataset cut for IV feature selection
+    ds_varied           = 'tmp/ds_varied.csv'           # merged dataset varied
+    ds_train            = 'tmp/ds_train.csv'            # split train dataset
+    ds_valid            = 'tmp/ds_valid.csv'            # split validation dataset
+    ds_test             = 'tmp/ds_test.csv'             # split test dataset
+    iv_detail           = 'iv/iv_detail.csv'            # dataset with feature IVs
+    lasso_detail        = 'lasso/lasso_detail.csv'      # dataset with feature lasso coefficients
+    xgb_detail          = 'xgb/xgb_detail.csv'          # dataset with feature xgb importances
+    fe_iv               = 'features/fe_iv.csv'          # selected feature by IV
+    fe_lasso            = 'features/fe_lasso.csv'       # selected feature by lasso coefficients
+    fe_xgb              = 'features/fe_xgb.csv'         # selected feature by xgb importances
+    tree_gate           = 'tmp/tree_gate.joblib'        # trained tree model
+    model_xgb           = 'xgb/model_xgb.joblib'        # trained xgb model
+    plot_gate_tree      = 'tmp/gate_tree.dot'           # plot of tree model
+    fe_gate_hit         = 'features/fe_gate_hit.csv'    # selected gate feature
+    fe_gate_tree        = 'features/fe_gate_tree.csv'   # selected tree feature
     ## class 1, 2, 4 variables
-    ds_gate         = 'tmp/ds_gate.csv'
-    ds_gate_cat     = 'tmp/ds_gate_cat.csv'
-    ds_gate_na      = 'tmp/ds_gate_na.csv'
-    fe_gate_hit     = 'features/fe_gate_hit.csv'
-    fe_gate_tree    = 'features/fe_gate_tree.csv'
-    hit_threshold   = 0.5
-    tree_threshold  = 0.3
-    fe_gate_pattern = ['^sl_', '^fr_', '^alu_']
-    fe_gate_t       = Preprocess.pattern_to_feature(ds_path, fe_gate_pattern, encoding='gb18030')
-    fe_gate         = []
-    for fe_class in fe_gate_t:
-        fe_gate.extend(fe_class)
-    plot_gate_tree  = 'tmp/gate_tree.dot'
-    tree_gate       = 'tmp/tree_gate.joblib'
-    ## class 3 variables
-    ds_c3           = 'tmp/ds_c3.csv'
-    ds_c3_na        = 'tmp/ds_c3_na.csv'
-    ds_c3_cat       = 'tmp/ds_c3_cat.csv'
-    ds_c3_cut1      = 'tmp/ds_c3_cut1.csv'
-    ds_c3_cut2      = 'tmp/ds_c3_cut2.csv'
-    iv_c3_cut1      = 'iv/iv_c3_cut1.csv'
-    iv_c3_cut2      = 'iv/iv_c3_cut2.csv'
-    fe_c3_cut1_iv   = 'features/fe_c3_cut1_iv.csv'
-    fe_c3_cut2_iv   = 'features/fe_c3_cut2_iv.csv'
-    fe_c3_pattern   = '^ir_'
-    fe_c3           = Preprocess.pattern_to_feature(ds_path, fe_c3_pattern, encoding='gb18030')[0]
-    fe_c3_lasso     = 'features/fe_c3_lasso.csv'
-    fe_c3_xgb       = 'features/fe_c3_xgb.csv'
-    lasso_c3        = 'lasso/lasso_c3.csv'
-    xgb_c3          = 'xgb/xgb_c3.csv'
-    ## class 5 variables
-    ds_c5           = 'tmp/ds_c5.csv'
-    ds_c5_varied    = 'tmp/ds_c5_varied.csv'
-    ds_c5_na        = 'tmp/ds_c5_na.csv'
-    ds_c5_cat       = 'tmp/ds_c5_cat.csv'
-    ds_c5_cut1      = 'tmp/ds_c5_cut1.csv'
-    ds_c5_cut2      = 'tmp/ds_c5_cut2.csv'
-    iv_c5_cut1      = 'iv/iv_c5_cut1.csv'
-    iv_c5_cut2      = 'iv/iv_c5_cut2.csv'
-    fe_c5_cut1_iv   = 'features/fe_c5_cut1_iv.csv'
-    fe_c5_cut2_iv   = 'features/fe_c5_cut2_iv.csv'
-    als_preffix     = [['^als_d7_id_', '^als_d15_id_', '^als_m1_id_', '^als_m3_id_', '^als_m6_id_', '^als_m12_id_', '^als_fst_id_', '^als_lst_id_'], ['^als_d7_cell_', '^als_d15_cell_', '^als_m1_cell_', '^als_m3_cell_', '^als_m6_cell_', '^als_m12_cell_', '^als_fst_cell_', '^als_lst_cell_']]
-    fe_c5_pattern   = '^als_'
-    fe_c5           = Preprocess.pattern_to_feature(ds_path, fe_c5_pattern, encoding='gb18030')[0]
-    fe_c5_lasso     = 'features/fe_c5_lasso.csv'
-    fe_c5_xgb       = 'features/fe_c5_xgb.csv'
-    lasso_c5        = 'lasso/lasso_c5.csv'
-    xgb_c5          = 'xgb/xgb_c5.csv'
-    ## class 6 variables
-    ds_c6           = 'tmp/ds_c6.csv'
-    ds_c6_na        = 'tmp/ds_c6_na.csv'
-    ds_c6_cat       = 'tmp/ds_c6_cat.csv'
-    ds_c6_cut1      = 'tmp/ds_c6_cut1.csv'
-    ds_c6_cut2      = 'tmp/ds_c6_cut2.csv'
-    iv_c6_cut1      = 'iv/iv_c6_cut1.csv'
-    iv_c6_cut2      = 'iv/iv_c6_cut2.csv'
-    fe_c6_cut1_iv   = 'features/fe_c6_cut1_iv.csv'
-    fe_c6_cut2_iv   = 'features/fe_c6_cut2_iv.csv'
-    fe_c6_pattern   = '^cf_'
-    fe_c6           = Preprocess.pattern_to_feature(ds_path, fe_c6_pattern, encoding='gb18030')[0]
-    fe_c6_lasso     = 'features/fe_c6_lasso.csv'
-    fe_c6_xgb       = 'features/fe_c6_xgb.csv'
-    lasso_c6        = 'lasso/lasso_c6.csv'
-    xgb_c6          = 'xgb/xgb_c6.csv'
-    ## class 7 variables
-    ds_c7           = 'tmp/ds_c7.csv'
-    ds_c7_na        = 'tmp/ds_c7_na.csv'
-    ds_c7_cat       = 'tmp/ds_c7_cat.csv'
-    ds_c7_cut1      = 'tmp/ds_c7_cut1.csv'
-    ds_c7_cut2      = 'tmp/ds_c7_cut2.csv'
-    iv_c7_cut1      = 'iv/iv_c7_cut1.csv'
-    iv_c7_cut2      = 'iv/iv_c7_cut2.csv'
-    fe_c7_cut1_iv   = 'features/fe_c7_cut1_iv.csv'
-    fe_c7_cut2_iv   = 'features/fe_c7_cut2_iv.csv'
-    fe_c7_pattern   = '^cons_'
-    fe_c7           = Preprocess.pattern_to_feature(ds_path, fe_c7_pattern, encoding='gb18030')[0]
-    fe_c7_lasso     = 'features/fe_c7_lasso.csv'
-    fe_c7_xgb       = 'features/fe_c7_xgb.csv'
-    lasso_c7        = 'lasso/lasso_c7.csv'
-    xgb_c7          = 'xgb/xgb_c7.csv'
-    ## class 8 variables
-    ds_c8           = 'data/pop.csv'
-    ds_c8_na        = 'tmp/ds_c8_na.csv'
-    ds_c8_cat       = 'tmp/ds_c8_cat.csv'
-    ds_c8_cut1      = 'tmp/ds_c8_cut1.csv'
-    ds_c8_cut2      = 'tmp/ds_c8_cut2.csv'
-    iv_c8_cut1      = 'iv/iv_c8_cut1.csv'
-    iv_c8_cut2      = 'iv/iv_c8_cut2.csv'
-    fe_c8_cut1_iv   = 'features/fe_c8_cut1_iv.csv'
-    fe_c8_cut2_iv   = 'features/fe_c8_cut2_iv.csv'
-    fe_c8_pattern   = '^pd_'
-    fe_c8           = Preprocess.pattern_to_feature(ds_c8, fe_c8_pattern, encoding='gb18030')[0] 
-    fe_c8_lasso     = 'features/fe_c8_lasso.csv'
-    fe_c8_xgb       = 'features/fe_c8_xgb.csv'
-    lasso_c8        = 'lasso/lasso_c8.csv'
-    xgb_c8          = 'xgb/xgb_c8.csv'
-    ## experience variables
-    ds_exp_na       = 'tmp/ds_exp_na.csv'
-    ## model dataset
-    ds_model         = 'tmp/ds_model.csv'
-    ds_model_cat     = 'tmp/ds_model_cat.csv'
-    ds_model_na      = 'tmp/ds_model_na.csv'
-    ## classed variables
-    classed_ds       = [ds_c3, ds_c5, ds_c6, ds_c7, ds_c8]
-    classed_ds_na    = [ds_c3_na, ds_c5_na, ds_c6_na, ds_c7_na, ds_c8_na]
-    classed_ds_cat   = [ds_c3_cat, ds_c5_cat, ds_c6_cat, ds_c7_cat, ds_c8_cat]
-    classed_ds_cut1  = [ds_c3_cut1, ds_c5_cut1, ds_c6_cut1, ds_c7_cut1, ds_c8_cut1]
-    classed_fe       = [fe_c3, fe_c5, fe_c6, fe_c7, fe_c8]
-    classed_fe_pattern = [fe_c3_pattern, fe_c5_pattern, fe_c6_pattern, fe_c7_pattern, fe_c8_pattern]
-    classed_fe_iv    = [fe_c3_cut1_iv, fe_c5_cut1_iv, fe_c6_cut1_iv, fe_c7_cut1_iv, fe_c8_cut1_iv]
-    classed_fe_lasso = [fe_c3_lasso, fe_c5_lasso, fe_c6_lasso, fe_c7_lasso, fe_c8_lasso]
-    classed_fe_xgb   = [fe_c3_xgb, fe_c5_xgb, fe_c6_xgb, fe_c7_xgb, fe_c8_xgb]
-    classed_lasso    = [lasso_c3, lasso_c5, lasso_c6, lasso_c7, lasso_c8]
-    classed_xgb      = [xgb_c3, xgb_c5, xgb_c6, xgb_c7, xgb_c8]
-    classed_iv       = [iv_c3_cut1, iv_c5_cut1, iv_c6_cut1, iv_c7_cut1, iv_c8_cut1]
+    fe_gate_pattern     = ['^sl_', '^fr_', '^alu_']
+    ## class 3, 5, 6, 7, 8 variables
+    fe_model_pattern    = ['^ir_', '^als_', '^cf_', '^cons_', '^pd_']
+
+    printlog('-----------------------------------feature preprocess-----------------------------------')
+    printlog('-----------------------------------prepare dataset-----------------------------------')
+    Preprocess.fill_na(ds_merged, 'all', replacement=-1, save_path=ds_na, encoding='gb18030')
+    Preprocess.fill_cat(ds_na, 'all', save_path=ds_cat, encoding='gb18030')
+    varyDataset(ds=ds_cat, save_path=ds_varied)
+    generateExperienceFeature(ds_varied)
+    train_fe, valid_fe, test_fe, train_lb, valid_lb, test_lb = Preprocess.train_validation_test_split(ds_varied, -1, 0.8, 0.1, 0.1, encoding='gb18030')
+    printlog('train label proportion:      {}; '.format(train_lb.sum() / train_lb.count()))
+    printlog('validation label proportion: {}'.format(valid_lb.sum() / valid_lb.count()))
+    printlog('test label proportion:       {}'.format(test_lb.sum() / test_lb.count()))
+    printlog('train feature shape:         {}; '.format(train_fe.shape))
+    printlog('validation feature shape:    {}; '.format(valid_fe.shape))
+    printlog('test feature shape:          {}; '.format(test_fe.shape))
+    pd.concat([train_fe, train_lb], axis=1, sort=True).to_csv(ds_train, encoding='gb18030')
+    pd.concat([valid_fe, valid_lb], axis=1, sort=True).to_csv(ds_valid, encoding='gb18030')
+    pd.concat([test_lb, test_lb],   axis=1, sort=True).to_csv(ds_test,  encoding='gb18030')
+
+    printlog('-----------------------------------feature selection-----------------------------------')
+    printlog('-----------------------------------feature selection on gate feature and tree classifier-----------------------------------')
+    fe_gate       = refreshModelFeature(ds_train, fe_gate_pattern)
+    ## gate feature
+    fe_gate_upper = Feature_selection.hit_positive_rate(ds_train, fe_gate, -1, hit_pos_rate_upper, na_replacement=-1, encoding='gb18030')
+    fe_gate_lower = Feature_selection.hit_positive_rate(ds_train, fe_gate, -1, hit_pos_rate_lower, na_replacement=-1, encoding='gb18030')
+    Log.itersave(fe_gate_hit, fe_gate_upper)
+    Log.itersave(fe_gate_tree, [fe for fe in fe_gate_lower if fe not in fe_gate_upper])
+    ## tree model
+    tcl = Model.tree_classifier(ds=ds_train, 
+        features=Log.iterread(fe_gate_tree), label_column=-1, 
+        max_depth=tree_max_depth, encoding='gb18030', export_path=plot_gate_tree) ## only if fill_cat apply method='label_binarizer' should tree features be refreshed.
+    dump(tcl, tree_gate)
+
+    printlog('-----------------------------------feature selection on IV-----------------------------------')
+    fe_model = refreshModelFeature(ds_train, fe_model_pattern)
+    ## redo below 1 line only if change threshold and bin or totally rebuild
+    Temp_support.cut(ds_train, fe_model, threshold=10, bin=10, method='equal-frequency', save_path=ds_cut, encoding='gb18030')
+    Temp_support.select_feature_iv(ds_cut, fe_model, -1, iv_upper_thresh, iv_lower_thresh, to_file=iv_detail, encoding='gb18030')
+    ds_temp = pd.read_csv(iv_detail, encoding='gb18030', header=0, index_col=0)['iv']
+    ds_temp[ds_temp.between(iv_lower_thresh, iv_upper_thresh)].to_csv(fe_iv, header='iv')
+
+    printlog('-----------------------------------feature selection on lasso-----------------------------------')
+    classed_fe_model = Preprocess.pattern_to_feature(ds_train, fe_model_pattern, encoding='gb18030')
+    lasso = Lasso(alpha=lasso_alpha)
+    ds_t = pd.read_csv(ds_train, encoding='gb18030', header=0, index_col=0)
+    listed_fe_lasso = []
+    listed_selected_fe = []
+    for fe_model in classed_fe_model:
+        lasso.fit(ds_t.loc[:, fe_model].values, ds_t.iloc[:, -1].values),
+        listed_fe_lasso.append(pd.DataFrame(lasso.coef_, index=fe_model, columns=['lasso']))
+        selected_index = np.abs(lasso.coef_) > lasso_coef
+        listed_selected_fe.append(listed_fe_lasso[-1][selected_index])
+    pd.concat(listed_fe_lasso, axis=0).to_csv(lasso_detail, encoding='gb18030')
+    pd.concat(listed_selected_fe, axis=0).to_csv(fe_lasso, encoding='gb18030')
+
+    printlog('-----------------------------------feature selection on xgb-----------------------------------')
+    classed_fe_model = Preprocess.pattern_to_feature(ds_train, fe_model_pattern, encoding='gb18030')
+    xgb = XGBClassifier()
+    ds_t = pd.read_csv(ds_train, encoding='gb18030', header=0, index_col=0)
+    listed_fe_xgb = []
+    listed_selected_fe = []
+    for fe_model in classed_fe_model:
+        xgb.fit(ds_t.loc[:, fe_model].values, ds_t.iloc[:, -1].values),
+        listed_fe_xgb.append(pd.DataFrame(xgb.feature_importances_, index=fe_model, columns=['lasso']))
+        selected_index = xgb.feature_importances_.argsort()[-30:]
+        listed_selected_fe.append(listed_fe_xgb[-1].iloc[selected_index, :])
+    pd.concat(listed_fe_xgb, axis=0).to_csv(xgb_detail, encoding='gb18030')
+    pd.concat(listed_selected_fe, axis=0).to_csv(fe_xgb, encoding='gb18030')
+
+    printlog('-----------------------------------features-----------------------------------')
+    hitrate_features  = Log.iterread(fe_gate_hit)
+    tree_features     = Log.iterread(fe_gate_tree)
+    selected_features = [
+      'als_m12_id_nbank_orgnum', 'als_m3_id_cooff_allnum', 
+      'ir_id_x_cell_cnt', 'als_m6_id_rel_allnum', 
+      'als_fst_id_nbank_inteday', 'cons_tot_m12_visits', 
+      'pd_gender_age']
+
+    printlog('-----------------------------------train-----------------------------------')
+    printlog('-----------------------------------train on xgb-----------------------------------')
+    def objective(y_true, y_pred):
+        multiplier = pd.Series(y_true).mask(y_true == 1, xgb_FN_grad_mul).mask(y_true == 0, xgb_FP_grad_mul)
+        grad = multiplier * (y_pred - y_true)
+        hess = multiplier * np.ones(y_pred.shape)
+        return grad, hess
+    xgb = XGBClassifier(objective=objective)
+    train_dataset = pd.read_csv(ds_train, encoding='gb18030', header=0, index_col=0)
+    xgb.fit(train_dataset.loc[:, selected_features], train_dataset.iloc[:, -1])
+    dump(xgb, model_xgb)
+
+    printlog('-----------------------------------validation-----------------------------------')
+    valid_dataset = pd.read_csv(ds_valid, encoding='gb18030', header=0, index_col=0)
+    printlog('-----------------------------------test on gate and tree-----------------------------------')
+    pred_hit     = (valid_dataset[hitrate_features] != -1).any(axis=1).astype(int)
+    pred_tree    = pd.Series(load(tree_gate).predict(valid_dataset[tree_features]), index=valid_dataset.index)
+    printlog('gate test: {} labelled 1 by hit positive rate.'.format(pred_hit.sum()))
+    printlog('gate test: {} labelled 1 by tree classifier.'.format(pred_tree.sum()))
+    printlog('-----------------------------------test on xgb-----------------------------------')
+    prediction = load(model_xgb).predict_proba(valid_dataset.loc[:, selected_features])
+    ## apply gate prediction to xgb prediction
+    prediction[:, 1] += pred_hit + pred_tree
+    prediction[prediction[:, 1] > 1, 1] = 1
+    ## assess model
+    Assess.modelAssess(valid_dataset.iloc[:, -1].to_numpy(), prediction, 'misc', 'XGB')
+
+    printlog('-----------------------------------finished-----------------------------------')
 
 
-    # printlog('-----------------------------------feature preprocess-----------------------------------')
-    # printlog('-----------------------------------class 1, 2, 4 - sl, fr, alu-----------------------------------')
-    # ## extract class and label feature
-    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pd.concat([ds_t.loc[:, fe_gate], ds_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_gate, encoding='gb18030')
-    # ## gate feature
-    # fe_gate_t = Feature_selection.hit_positive_rate(ds_gate, fe_gate, -1, hit_pos_rate_upper, encoding='gb18030')
-    # fe_gate_t1 = Feature_selection.hit_positive_rate(ds_gate, fe_gate, -1, hit_pos_rate_lower, encoding='gb18030')
-    # Log.itersave(fe_gate_hit, fe_gate_t)
-    # Log.itersave(fe_gate_tree, [fe for fe in fe_gate_t1 if fe not in fe_gate_t])
-    # ## tree model
-    # fill_na = lambda x, f: Preprocess.fill_na(x, f, replacement=-1, save_path=ds_gate_na, encoding='gb18030')
-    # fill_cat = lambda x, f: Preprocess.fill_cat(x, f, save_path=ds_gate_cat, encoding='gb18030')
-    # tcl, _, fe_gate_t = Model.tree_classifier(ds=ds_gate, 
-    #     features=Log.iterread(fe_gate_tree), label_column=-1, 
-    #     max_depth=tree_max_depth, fill_na=fill_na, fill_cat=fill_cat, 
-    #     encoding='gb18030', export_path=plot_gate_tree)
-    # Log.itersave(fe_gate_tree, fe_gate_t)
-    # dump(tcl, tree_gate)
-    printlog('-----------------------------------class 3, 6, 7, 8 - cons-----------------------------------')
-    for i, (ds, ds_na, ds_cat, ds_cut1, fe, fe_pattern) in enumerate(zip(classed_ds, classed_ds_na, classed_ds_cat, classed_ds_cut1, classed_fe, classed_fe_pattern)):
-        printlog('-----------------------------------class {} - {}-----------------------------------'.format(i + 1, fe_pattern))
-        ## extract class and label feature
-        ds_temp = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-        pd.concat([ds_temp.loc[:, fe], ds_temp.iloc[:, -1]], axis=1).to_csv(ds, encoding='gb18030')
-        if i == 1: # class 5
-            printlog('class 5 - value padding: larger/smaller')
-            ds_t = pd.read_csv(ds, encoding='gb18030', header=0, index_col=0)
-            for i, (id_fc, cell_fc) in enumerate(zip(Preprocess.pattern_to_feature(ds_t, als_preffix[0], encoding='gb18030'), Preprocess.pattern_to_feature(ds_t, als_preffix[1], encoding='gb18030'))):
-                for id_f, cell_f in zip(id_fc, cell_fc):
-                    ds_t.insert(loc=ds_t.columns.get_loc(id_f), column=id_f.replace('id', 'large'), value=ds_t[[id_f, cell_f]].apply(np.max, axis=1))
-                    ds_t.insert(loc=ds_t.columns.get_loc(id_f), column=id_f.replace('id', 'small'), value=ds_t[[id_f, cell_f]].apply(np.min, axis=1))
-                printlog('class 5 - value padding finished {} and {}'.format(als_preffix[0][i], als_preffix[1][i]))
-            ds_t.to_csv(ds, encoding='gb18030')
-            fe = Preprocess.pattern_to_feature(ds, fe_pattern, encoding='gb18030')
-        ## start of fill na, cut
-        Preprocess.fill_na(ds, fe, replacement=-1, save_path=ds_na, encoding='gb18030')
-        Preprocess.fill_cat(ds_na, fe, save_path=ds_cat, encoding='gb18030')
-        Temp_support.cut(ds_cat, fe, method='equal-frequency', threshold=10, bin=10, save_path=ds_cut1, encoding='gb18030')
-    # printlog('-----------------------------------class 5 - als(feature variation)-----------------------------------')
-
-    # printlog('-----------------------------------class 3 - ir-----------------------------------')
-    # ## extract class and label feature
-    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pd.concat([ds_t.loc[:, fe_c3], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c3, encoding='gb18030')
-    # ## start of fill na, cut
-    # Preprocess.fill_na(ds_c3, fe_c3, replacement=-1, save_path=ds_c3_na, encoding='gb18030')
-    # Temp_support.cut(ds_c3_na, fe_c3, method='equal-frequency', threshold=5, bin=5,   save_path=ds_c3_cut1, encoding='gb18030')
-    # printlog('-----------------------------------class 6 - cf-----------------------------------')
-    # ## extract class and label features
-    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pd.concat([ds_t.loc[:, fe_c6], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c6, encoding='gb18030')
-    # ## start of fill na, cut
-    # Preprocess.fill_na(ds_c6, fe_c6, replacement=-1, save_path=ds_c6_na, encoding='gb18030')
-    # Temp_support.cut(ds_c6_na, fe_c6, method='equal-frequency', threshold=5, bin=5,   save_path=ds_c6_cut1, encoding='gb18030')
-    # printlog('-----------------------------------class 7 - cons-----------------------------------')
-    # ## extract class and flag features
-    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pd.concat([ds_t.loc[:, fe_c7], ds_t.iloc[:, -1]], axis=1).to_csv(ds_c7, encoding='gb18030')
-    # ## start of fill na, cut
-    # Preprocess.fill_na(ds_c7, fe_c7, replacement=-1, save_path=ds_c7_na, encoding='gb18030')
-    # Preprocess.fill_cat(ds_c7_na, fe_c7, save_path=ds_c7_cat, encoding='gb18030')
-    # ds = pd.read_csv(ds_c7_cat, encoding='gb18030', header=0, index_col=0)
-    # Temp_support.cut(ds_c7_cat, fe_c7, method='equal-frequency', threshold=5, bin=5, save_path=ds_c7_cut1, encoding='gb18030')
-    # printlog('-----------------------------------class 8 - pop-----------------------------------')
-    # ## extract class and flag features
-    # ds_t = pd.read_csv(ds_c8, encoding='gb18030', header=0, index_col=0)
-    # ds_origin_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pd.concat([ds_t.loc[:, fe_c8], ds_origin_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_c8, encoding='gb18030')
-    # ## start of selection
-    # Preprocess.fill_na(ds_c8, fe_c8, replacement=-1, save_path=ds_c8_na, encoding='gb18030')
-    # Temp_support.cut(ds_c8_na, fe_c8, method='equal-frequency', threshold=5, bin=5, save_path=ds_c8_cut1, encoding='gb18030')
+def varyDataset(ds, save_path):
+    classed_feature_preffix = [['^als_d7_id_', '^als_d15_id_', '^als_m1_id_', '^als_m3_id_', '^als_m6_id_', '^als_m12_id_', '^als_fst_id_', '^als_lst_id_'], ['^als_d7_cell_', '^als_d15_cell_', '^als_m1_cell_', '^als_m3_cell_', '^als_m6_cell_', '^als_m12_cell_', '^als_fst_cell_', '^als_lst_cell_']]
+    printlog('class 5 - value padding: larger/smaller')
+    ds_t = pd.read_csv(ds, encoding='gb18030', header=0, index_col=0)
+    for i, (id_fc, cell_fc) in enumerate(zip(Preprocess.pattern_to_feature(ds_t, 
+        classed_feature_preffix[0], encoding='gb18030'), Preprocess.pattern_to_feature(ds_t, 
+        classed_feature_preffix[1], encoding='gb18030'))):
+        for id_f, cell_f in zip(id_fc, cell_fc):
+            ds_t.insert(loc=ds_t.columns.get_loc(id_f), column=id_f.replace('id', 'large'), value=ds_t[[id_f, cell_f]].apply(np.max, axis=1))
+            ds_t.insert(loc=ds_t.columns.get_loc(id_f), column=id_f.replace('id', 'small'), value=ds_t[[id_f, cell_f]].apply(np.min, axis=1))
+        printlog('class 5 - value padding finished {} and {}'.format(classed_feature_preffix[0][i], classed_feature_preffix[1][i]))
+    ds_t.to_csv(save_path, encoding='gb18030')
 
 
-    # ## necessary as new features in ds_c5_varied
-    # fe_c5_t = Preprocess.pattern_to_feature(ds_c5_varied, fe_c5_pattern, encoding='gb18030')[0]
+def refreshModelFeature(ds, listed_feature_pattern):
+    fe_temp         = Preprocess.pattern_to_feature(ds, listed_feature_pattern, encoding='gb18030')
+    fe_model        = []
+    for fe_class in fe_temp:
+        fe_model.extend(fe_class)
+    return fe_model
 
 
-    # printlog('-----------------------------------feature selection on IV-----------------------------------')
-    # for ds_cut1, fe_iv, ivv in zip(classed_ds_cut1, classed_fe_iv, classed_iv):
-    #     Temp_support.select_feature_iv(ds_cut1, pd.read_csv(ds_cut1, header=0, index_col=0).columns[:-1], -1, 
-    #         iv_upper_thresh, iv_lower_thresh, to_file=ivv, encoding='gb18030')
-    #     ds_t = pd.read_csv(ivv, header=0, index_col=0)['iv']
-    #     ds_t[ds_t.between(iv_lower_thresh, iv_upper_thresh)].to_csv(fe_iv, header=0)
-    # printlog('-----------------------------------feature selection on lasso-----------------------------------')
-    # for i, (ds_na, fe_lasso, lass) in tqdm(enumerate(zip(classed_ds_cat, classed_fe_lasso, classed_lasso)), desc='lasso', total=5):
-        # # if i == 1 or i == 0:
-        # #     continue
-        # # alphas = [1, 2, 3, 4, 5]
-        # # ds_t = pd.read_csv(ds_na, encoding='gb18030', header=0, index_col=0)
-        # # cv_lasso = [np.sqrt(-cross_val_score(Lasso(alpha = alpha), ds_t.iloc[:, :-1], ds_t.iloc[:, -1], 
-        # #     scoring="neg_mean_squared_error", cv = 5)).mean() for alpha in alphas]
-        # # cv_lasso = pd.Series(cv_lasso, index = alphas)
-        # # cv_lasso.plot(title = "Validation")
-        # # plt.xlabel("alpha")
-        # # plt.ylabel("rmse")
-        # # plt.savefig('lasso/lasso_rmse_{}.png'.format(i + 1))
-        # # plt.close()
-    #     lasso = Lasso(alpha=lasso_alpha)
-    #     ds_t = pd.read_csv(ds_na, encoding='gb18030', header=0, index_col=0)
-    #     lasso.fit(ds_t.iloc[:, :-1].values, ds_t.iloc[:, -1].values)
-    #     pd.DataFrame(lasso.coef_, index=ds_t.columns[:-1], columns=['lasso']).to_csv(lass)
-    #     pd.read_csv(lass, header=0, index_col=0).loc[np.abs(lasso.coef_) > lasso_coef, :].to_csv(fe_lasso)
-    # printlog('-----------------------------------feature selection on xgb-----------------------------------')
-    # for ds_na, fe_xgb, xgbb in zip(classed_ds_cat, classed_fe_xgb, classed_xgb):
-    #     xgb_t = XGBClassifier()
-    #     ds_t = pd.read_csv(ds_na, encoding='gb18030', header=0, index_col=0)
-    #     xgb_t.fit(ds_t.iloc[:, :-1].values, ds_t.iloc[:, -1].values)
-    #     pd.DataFrame(xgb_t.feature_importances_, index=ds_t.columns[:-1], columns=['xgb']).to_csv(xgbb)
-    #     pd.read_csv(xgbb, header=0, index_col=0).iloc[xgb_t.feature_importances_.argsort()[-30:], :].to_csv(fe_xgb)
-
-    # printlog('-----------------------------------experience feature-----------------------------------')
-    # series_t = pd.read_csv(ds_c7_na, encoding='gb18030', header=0, index_col=0)['cons_tot_m12_visits']
-    # series_t[series_t.between(-99.001, -0.001)]    = -99
-    # series_t[series_t.between(-0.001, 500.001)]    = 500
-    # series_t[series_t.between(500.001, 1000.001)]  = 1000
-    # series_t[series_t.between(1000.001, 1500.001)] = 1500
-    # series_t[series_t.between(1500.001, 900000)]   = 9000
-    # series_t.to_csv(ds_exp_na, header='cons_tot_m12_visits')
-
-    # ds_t = pd.read_csv(ds_c8_na, encoding='gb18030', header=0, index_col=0)[['pd_id_gender', 'pd_id_apply_age']]
-    # series_t = pd.Series(data=-1, index=ds_t.index)
-    # series_t[(ds_t['pd_id_gender'] == 0) & (ds_t['pd_id_apply_age'].between(-99.001, 30.001))] = 0
-    # series_t[(ds_t['pd_id_gender'] == 0) & (ds_t['pd_id_apply_age'].between(30.001, 60.001))]  = 1
-    # series_t[(ds_t['pd_id_gender'] == 0) & (ds_t['pd_id_apply_age'].between(60.001, 999.001))] = 2
-    # series_t[(ds_t['pd_id_gender'] == 1) & (ds_t['pd_id_apply_age'].between(-0.001, 24.001))]  = 3
-    # series_t[(ds_t['pd_id_gender'] == 1) & (ds_t['pd_id_apply_age'].between(24.001, 35.001))]  = 4
-    # series_t[(ds_t['pd_id_gender'] == 1) & (ds_t['pd_id_apply_age'].between(35.001, 45.001))]  = 5
-    # series_t[(ds_t['pd_id_gender'] == 1) & (ds_t['pd_id_apply_age'].between(45.001, 999.001))] = 2
-    # pd.concat([pd.DataFrame(series_t, columns=['pd_gender_age']), pd.read_csv(ds_exp_na, encoding='gb18030', 
-    #     header=0, index_col=0)], axis=1, sort=True).to_csv(ds_exp_na, encoding='gb18030')
-
-    # printlog('-----------------------------------prepare dataset-----------------------------------')
-    # hitrate_features = Log.iterread(fe_gate_hit)
-    # tree_features    = Log.iterread(fe_gate_tree)
-    # xgb_features     = ['als_m12_id_nbank_orgnum', 'als_m3_id_cooff_allnum', 'ir_id_x_cell_cnt', 'als_m6_id_rel_allnum', 'als_fst_id_nbank_inteday']
-    # pop_features     = []
-    # exp_features     = ['cons_tot_m12_visits', 'pd_gender_age']
-    # ds_t = pd.read_csv(ds_path, encoding='gb18030', header=0, index_col=0)
-    # pop_t = pd.read_csv(ds_c8, encoding='gb18030', header=0, index_col=0)
-    # ds_exp_t = pd.read_csv(ds_exp_na, encoding='gb18030', header=0, index_col=0)
-    # pd.concat([ds_exp_t.loc[:, exp_features], ds_t.loc[:, hitrate_features+tree_features+xgb_features], 
-    #     pop_t.loc[:, pop_features], ds_t.iloc[:, -1]], axis=1, sort=True).to_csv(ds_model)
-    # Preprocess.fill_na(ds_model, exp_features+hitrate_features+tree_features+xgb_features+pop_features, 
-    #     replacement=-1, save_path=ds_model_na, encoding='gb18030')
-    # # Preprocess.fill_cat(ds_model_na, exp_features+hitrate_features+tree_features+xgb_features+pop_features, 
-    # #     save_path=ds_model_cat, encoding='gb18030')
-    # ds_t = pd.read_csv(ds_model_na, header=0, index_col=0, encoding='gb18030')
-    # train_fe, test_fe, train_lb, test_lb = train_test_split(ds_t.iloc[:, :-1], ds_t.iloc[:, -1], stratify=ds_t.iloc[:, -1], test_size=0.3, train_size=0.7, random_state=1)
-    # printlog('train label proportion: {}'.format(train_lb.sum() / train_lb.count()))
-    # printlog('test label proportion: {}'.format(test_lb.sum() / test_lb.count()))
-    # printlog('-----------------------------------gate and tree-----------------------------------')
-    # pred_hit     = (test_fe[hitrate_features] != -1).any(axis=1).astype(int)
-    # pred_tree    = pd.Series(load(tree_gate).predict(test_fe[tree_features]), index=test_fe.index)
-    # printlog('gate test: {} labelled 1 by hit positive rate.'.format(pred_hit.sum()))
-    # printlog('gate test: {} labelled 1 by tree classifier.'.format(pred_tree.sum()))
-    # printlog('-----------------------------------train on xgb-----------------------------------')
-    # def objective(y_true, y_pred):
-    #     multiplier = pd.Series(y_true).mask(y_true == 1, xgb_FN_grad_mul).mask(y_true == 0, xgb_FP_grad_mul)
-    #     grad = multiplier * (y_pred - y_true)
-    #     hess = multiplier * np.ones(y_pred.shape)
-    #     return grad, hess
-    # xgb_t = XGBClassifier(objective=objective)
-    # xgb_t.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
-    # prediction = xgb_t.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
-    # ## apply gate prediction to xgb prediction
-    # prediction[:, 1] += pred_hit + pred_tree
-    # prediction[prediction[:, 1] > 1, 1] = 1
-    # # ## apply cutoff (TO BE TESTED)
-    # # prediction[prediction[:, 0] < xgb_zero_proba_cutoff, 1] = 1
-    # # prediction[prediction[:, 0] < xgb_zero_proba_cutoff, 0] = 0
-    # ## assess model
-    # Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', 'XGB')
-        
-    # printlog('-----------------------------------train on resemble models-----------------------------------')
-    # cv_time=5
-    # printlog('nan features: {}'.format(train_fe.isna().sum(axis=0)))
-    # printlog('nan: train_fe: {}, train_lb: {}'.format(train_fe.isna().sum().sum(), train_lb.isna().sum()))
-    # printlog('nan: test_fe: {}, test_lb: {}'.format(test_fe.isna().sum().sum(), test_lb.isna().sum()))
-    # printlog('-----------------------------------train on random forest-----------------------------------')
-    # printlog(-cross_val_score(RandomForestClassifier(n_estimators=100), train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
-    # estimator = RandomForestClassifier(n_estimators=100)
-    # estimator.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
-    # prediction = estimator.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
-    # Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', 'RandomForest')
-    # printlog('-----------------------------------train on extrar tree-----------------------------------')
-    # printlog(-cross_val_score(ExtraTreesClassifier(n_estimators=100), train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
-    # estimator = ExtraTreesClassifier(n_estimators=100)
-    # estimator.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
-    # prediction = estimator.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
-    # Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', 'ExtraTree')
-    # printlog('-----------------------------------train on adaboost-----------------------------------')
-    # printlog(-cross_val_score(AdaBoostClassifier(), train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
-    # estimator = AdaBoostClassifier(n_estimators=100)
-    # estimator.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
-    # prediction = estimator.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
-    # Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', 'AdaBoost')
-    # printlog('-----------------------------------train on gbdt-----------------------------------')
-    # printlog(-cross_val_score(GradientBoostingClassifier(), train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb, scoring='neg_mean_squared_error', cv=cv_time).mean())
-    # estimator = GradientBoostingClassifier(n_estimators=100)
-    # estimator.fit(train_fe.loc[:, xgb_features+pop_features+exp_features], train_lb)
-    # prediction = estimator.predict_proba(test_fe.loc[:, xgb_features+pop_features+exp_features])
-    # Assess.modelAssess(test_lb.to_numpy(), prediction, 'misc', 'GradientBoosting')
+def generateExperienceFeature(ds):
+    printlog('-----------------------------------generate experience feature-----------------------------------')
+    ds_temp = pd.read_csv(ds, encoding='gb18030', header=0, index_col=0)
+    series_t = pd.Series(ds_temp['cons_tot_m12_visits'], ds_temp.index)
+    series_t[series_t.between(-99.001, -0.001)]    = -99
+    series_t[series_t.between(-0.001, 500.001)]    = 500
+    series_t[series_t.between(500.001, 1000.001)]  = 1000
+    series_t[series_t.between(1000.001, 1500.001)] = 1500
+    series_t[series_t.between(1500.001, 900000)]   = 9000
+    ds_temp.loc[:, 'cons_tot_m12_visits'] = series_t
+    
+    series_t = pd.Series(data=-1, index=ds_temp.index)
+    series_t[(ds_temp['pd_id_gender'] == 0) & (ds_temp['pd_id_apply_age'].between(-99.001, 30.001))] = 0
+    series_t[(ds_temp['pd_id_gender'] == 0) & (ds_temp['pd_id_apply_age'].between(30.001, 60.001))]  = 1
+    series_t[(ds_temp['pd_id_gender'] == 0) & (ds_temp['pd_id_apply_age'].between(60.001, 999.001))] = 2
+    series_t[(ds_temp['pd_id_gender'] == 1) & (ds_temp['pd_id_apply_age'].between(-0.001, 24.001))]  = 3
+    series_t[(ds_temp['pd_id_gender'] == 1) & (ds_temp['pd_id_apply_age'].between(24.001, 35.001))]  = 4
+    series_t[(ds_temp['pd_id_gender'] == 1) & (ds_temp['pd_id_apply_age'].between(35.001, 45.001))]  = 5
+    series_t[(ds_temp['pd_id_gender'] == 1) & (ds_temp['pd_id_apply_age'].between(45.001, 999.001))] = 2
+    if 'pd_gender_age' not in ds_temp.columns:
+        ds_temp.insert(ds_temp.columns.size - 1, 'pd_gender_age', series_t)
+    else:
+        ds_temp.loc[:, 'pd_gender_age'] = series_t
+    ds_temp.to_csv(ds, encoding='gb18030')
 
 
 if __name__ == '__main__':
-    run()
-    potplayer.run('jinitaimei.m4a')
+    try:
+        run()
+        potplayer.run('jinitaimei.m4a')
+    except Exception as e:
+        logging.error(traceback.format_exc())
+        potplayer.run('oligei.m4a')
