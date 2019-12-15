@@ -2,7 +2,7 @@ from utils import EDA_massive, Preprocess, Log, EDA, Feature_selection, Model, T
 from utils.Log import printlog
 
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier, AdaBoostClassifier, GradientBoostingClassifier
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn.model_selection import train_test_split, cross_val_score, GridSearchCV
 from sklearn.linear_model import Lasso
 from xgboost import XGBClassifier
 from collections import Counter
@@ -27,7 +27,7 @@ def run():
     hit_pos_rate_upper = 0.5
     hit_pos_rate_lower = 0.2
     tree_max_depth = 2
-    iv_upper_thresh = 0.5
+    iv_upper_thresh = 999
     iv_lower_thresh = 0.2
     lasso_alpha = 1.0
     lasso_coef = 1e-05
@@ -57,6 +57,7 @@ def run():
     fe_xgb              = 'features/fe_xgb.csv'         # selected feature by xgb importances
     tree_gate           = 'tmp/tree_gate.joblib'        # trained tree model
     model_xgb           = 'xgb/model_xgb.joblib'        # trained xgb model
+    model_xgb_optim     = 'xgb/model_xgb_optim.joblib'        # trained xgb model optimized
     plot_gate_tree      = 'tmp/gate_tree.dot'           # plot of tree model
     fe_gate_hit         = 'features/fe_gate_hit.csv'    # selected gate feature
     fe_gate_tree        = 'features/fe_gate_tree.csv'   # selected tree feature
@@ -80,7 +81,7 @@ def run():
     printlog('test feature shape:          {}; '.format(test_fe.shape))
     pd.concat([train_fe, train_lb], axis=1, sort=True).to_csv(ds_train, encoding='gb18030')
     pd.concat([valid_fe, valid_lb], axis=1, sort=True).to_csv(ds_valid, encoding='gb18030')
-    pd.concat([test_lb, test_lb],   axis=1, sort=True).to_csv(ds_test,  encoding='gb18030')
+    pd.concat([test_fe,  test_lb],  axis=1, sort=True).to_csv(ds_test,  encoding='gb18030')
 
     printlog('-----------------------------------feature selection-----------------------------------')
     printlog('-----------------------------------feature selection on gate feature and tree classifier-----------------------------------')
@@ -150,23 +151,47 @@ def run():
         return grad, hess
     xgb = XGBClassifier(objective=objective)
     train_dataset = pd.read_csv(ds_train, encoding='gb18030', header=0, index_col=0)
-    xgb.fit(train_dataset.loc[:, selected_features], train_dataset.iloc[:, -1])
-    dump(xgb, model_xgb)
-
-    printlog('-----------------------------------validation-----------------------------------')
     valid_dataset = pd.read_csv(ds_valid, encoding='gb18030', header=0, index_col=0)
+    xgb_params          = {'max_depth': [3, 4, 5], 'n_estimators': range(10, 301, 10)}
+    xgb_scorer          = ['neg_mean_squared_error', 'roc_auc']
+    xgb_optim_params    = Assess.gridCVSelection(xgb, 'xgb', 'misc', 
+        train_dataset.loc[:, selected_features], train_dataset.iloc[:,-1], 
+        valid_dataset.loc[:, selected_features], valid_dataset.iloc[:,-1], 
+        xgb_params, xgb_scorer, refit_scorer='roc_auc')
+    xgb.fit(train_dataset.loc[:, selected_features], train_dataset.iloc[:, -1])
+    cutoff = optimalCufoff(xgb, valid_dataset.loc[:, selected_features], valid_dataset.iloc[:, -1].to_numpy())
+    dump(xgb, model_xgb)
+    xgb.set_params(**xgb_optim_params)
+    xgb.fit(train_dataset.loc[:, selected_features], train_dataset.iloc[:, -1])
+    prediction = xgb.predict_proba(valid_dataset.loc[:, selected_features])
+    cutoff_optim = optimalCufoff(xgb, valid_dataset.loc[:, selected_features], valid_dataset.iloc[:, -1].to_numpy())
+    dump(xgb, model_xgb_optim)
+
+    printlog('-----------------------------------test-----------------------------------')
+    test_dataset = pd.read_csv(ds_test, encoding='gb18030', header=0, index_col=0)
     printlog('-----------------------------------test on gate and tree-----------------------------------')
-    pred_hit     = (valid_dataset[hitrate_features] != -1).any(axis=1).astype(int)
-    pred_tree    = pd.Series(load(tree_gate).predict(valid_dataset[tree_features]), index=valid_dataset.index)
+    pred_hit     = (test_dataset[hitrate_features] != -1).any(axis=1).astype(int)
+    pred_tree    = pd.Series(load(tree_gate).predict(test_dataset[tree_features]), index=test_dataset.index)
     printlog('gate test: {} labelled 1 by hit positive rate.'.format(pred_hit.sum()))
     printlog('gate test: {} labelled 1 by tree classifier.'.format(pred_tree.sum()))
     printlog('-----------------------------------test on xgb-----------------------------------')
-    prediction = load(model_xgb).predict_proba(valid_dataset.loc[:, selected_features])
+    prediction          = load(model_xgb).predict_proba(test_dataset.loc[:, selected_features])
+    prediction_optim    = load(model_xgb_optim).predict_proba(test_dataset.loc[:, selected_features])
     ## apply gate prediction to xgb prediction
     prediction[:, 1] += pred_hit + pred_tree
     prediction[prediction[:, 1] > 1, 1] = 1
+    prediction_optim[:, 1] += pred_hit + pred_tree
+    prediction_optim[prediction_optim[:, 1] > 1, 1] = 1
+    ## apply cutoff formula
+    prediction[prediction[:, 1] <= cutoff, 1] = 0
+    prediction[prediction[:, 1] == 0, 0] = 1
+    prediction[prediction[:, 1] == 1, 0] = 0
+    prediction_optim[prediction_optim[:, 1] <= cutoff_optim, 1] = 0
+    prediction_optim[prediction_optim[:, 1] == 0, 0] = 1
+    prediction_optim[prediction_optim[:, 1] == 1, 0] = 0
     ## assess model
-    Assess.modelAssess(valid_dataset.iloc[:, -1].to_numpy(), prediction, 'misc', 'XGB')
+    Assess.modelAssess(valid_dataset.iloc[:, -1].to_numpy(), prediction,       'misc', 'XGB')
+    Assess.modelAssess(valid_dataset.iloc[:, -1].to_numpy(), prediction_optim, 'misc', 'XGB_optim')
 
     printlog('-----------------------------------finished-----------------------------------')
 
@@ -217,6 +242,19 @@ def generateExperienceFeature(ds):
     else:
         ds_temp.loc[:, 'pd_gender_age'] = series_t
     ds_temp.to_csv(ds, encoding='gb18030')
+    
+
+def optimalCufoff(estimator, features, labels):
+    assessment = []
+    for cutoff in [i / 10 for i in range(1, 9)]:
+        pred = estimator.predict_proba(features)[:, 1]
+        pred[pred >  cutoff] = 1
+        pred[pred <= cutoff] = 0
+        true_pos  = ((pred == 1) & (labels == 1)).sum()
+        false_pos = ((pred == 1) & (labels == 0)).sum()
+        assessment.append(true_pos * 0.1 - false_pos * 0.6 - 200 / (true_pos + false_pos))
+    printlog('optimalCutoff: {}'.format((np.array(assessment).argmax() + 1) / 10))
+    return (np.array(assessment).argmax() + 1) / 10
 
 
 if __name__ == '__main__':
