@@ -2,9 +2,21 @@ import os
 import datetime
 
 
-def printlog(content, file_path='logs/default.log', linebreak=True, encoding='utf-8', creative=False, printable=True):
+def printlog(
+    *objects, 
+    file_path='logs/default.log', 
+    linebreak=True, 
+    encoding='utf-8', 
+    creative=False, 
+    printable=True):
+    """Print and write log contents.
+
+    Parameters
+    ----------
+    content : values
+    """
     if printable:
-        print('{}: {}'.format(datetime.datetime.now().time(), content))
+        print('{}: {}'.format(datetime.datetime.now().replace(microsecond=0).time(), *objects))
     if creative:
         if not os.path.isdir(os.path.dirname(file_path)):
             os.mkdir(os.path.dirname(file_path))
@@ -14,9 +26,9 @@ def printlog(content, file_path='logs/default.log', linebreak=True, encoding='ut
     assert os.path.isfile(file_path), 'Log.log: file {} does not exist'.format(os.path.basename(file_path))
     with open(file_path, 'a') as file:
         if linebreak:
-            file.write('{}: {}\n'.format(datetime.datetime.now().time(), content))
+            file.write('{}: {}\n'.format(datetime.datetime.now().time(), *objects))
         else:
-            file.write('{}: {}'.format(datetime.datetime.now().time(), content))
+            file.write('{}: {}'.format(datetime.datetime.now().time(), *objects))
 
 
 def log(content, file_path='logs/default.log', linebreak=True, encoding='utf-8', creative=False, printable=False):

@@ -567,7 +567,7 @@ def clean_poor_sample(ds, threshold, save_path=None, encoding='utf-8', header=0,
         ds.to_csv(save_path, encoding=encoding)
 
 
-def clean_poor_feature(ds, threshold, save_path=None, encoding='utf-8', header=0, index_col=0):
+def drop_sparse(ds, features, threshold, save_path=None, encoding='utf-8', header=0, index_col=0):
     '''
     # Params:
 
@@ -576,10 +576,15 @@ def clean_poor_feature(ds, threshold, save_path=None, encoding='utf-8', header=0
     threshold: int, threshold for least notna samples of feature
 
     '''
+    printlog('Preprocess.drop_sparse: started.')
     ds = pd.read_csv(ds, encoding=encoding, header=header, index_col=index_col) if isinstance(ds, str) else ds
-    ds = ds.loc[:, ds.notna().sum(axis=0) > threshold]
+    features = ds.columns if features == 'all' else features
+    features = [features] if isinstance(features, str) else features
+    columns_todrop = ds[features].loc[:, ds[features].notna().sum(axis=0) <= threshold]
+    ds = ds.drop(columns=columns_todrop.columns)
     if save_path:
         ds.to_csv(save_path, encoding=encoding)
+    printlog('Preprocess.drop_sparse: finished. {} features dropped.'.format(columns_todrop.shape[1]))
 
 
 def clean_dull_feature(ds, threshold, label_column, save_path=None, encoding='utf-8', header=0, index_col=0):
